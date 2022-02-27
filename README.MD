@@ -1,0 +1,3 @@
+### Various problems in networked dynamical systems...
+
+See `/res_local` for resilient localization of drone swarms.
