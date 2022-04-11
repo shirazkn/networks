@@ -7,7 +7,7 @@ class Graph:
     Stores a Directed Graph as vertices and edges
     Incidentally this implementation is similar to the one in the <networkx> python package
     """
-    def __init__(self, is_undirected=False):
+    def __init__(self, is_undirected=True):
         self.Adj = np.array([[]])
         self.order = []  # ["vertex_1", "vertex_2", ...]  (ordered in the same way as the adjacency matrix)
         self.vertices = {}  # {"vertex_name": <some python object>, ... }
@@ -39,27 +39,23 @@ class Graph:
 
     def add_edge(self, vertex_1, vertex_2):
         self.edges[vertex_1].add(vertex_2)
+        self.vertices[vertex_1].neighbors.add(self.vertices[vertex_2])
         self.Adj[self.index(vertex_1), self.index(vertex_2)] = 1
+
         if self.is_undirected:
             self.edges[vertex_2].add(vertex_1)
+            self.vertices[vertex_2].neighbors.add(self.vertices[vertex_1])
             self.Adj[self.index(vertex_2), self.index(vertex_1)] = 1
 
     def index(self, vertex):
         """Returns the index of <vertex> in <self.order>"""
         return self.order.index(vertex)
 
+    def draw(self, axis=None):
+        plot.draw_graph(self, axis)
+        return plot.get_axis() if not axis else axis
 
-class Framework(Graph):
-    """
-    Child class of <Graph>, specifies a <position> for each <vertex>
-    """
-    def __init__(self, is_undirected=True):
-        super().__init__(is_undirected=is_undirected)
-        self.positions = []  # Stored in the same order as <self.order>
+    def show(self):
+        plot.show()
 
-    def add_vertex(self, name=None, object=None, position=None):
-        super().add_vertex(name, object)
-        self.positions.append(misc.column(position))
-
-    def display(self):
-        plot.framework_undirected(self)
+    # TODO: Implement 'check_connectivity()' to connect nodes based on Euclidean distance

@@ -1,31 +1,45 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
+
+from functions import misc, config
 
 
-def graph_undirected(graph):
+def draw_graph(graph, axis, plot_estimates=False):
     """
-    The networkx package can plot aesthetically pleasing graphs
-    but we want to plot frameworks (i.e. the vertices have positions)
+    Plots graph with vertices placed in a specific configuration
+    Potentially supports 3D configurations(?)
     """
     nx_graph = nx.Graph(graph.edges)
-    nx.draw(nx_graph, with_labels=True)
+    positions = None
+    if graph.vertices[graph.order[0]]._pos is not None:
+        positions = {}
+        for vertex in graph.vertices.keys():
+            positions[vertex] = misc.tuple_from_col_vec(graph.vertices[vertex]._pos)
+    nx.draw(nx_graph, positions, with_labels=True, ax=axis)
+
+    for vertex in graph.vertices.values():
+        vertex.plot()
+
+    plt.xlim((-config.PLOT_LIM + config.OFFSET[0], config.PLOT_LIM + config.OFFSET[0]))
+    plt.ylim((-config.PLOT_LIM + config.OFFSET[1], config.PLOT_LIM + config.OFFSET[1]))
+    plt.xticks()
+    plt.yticks()
+    plt.grid()
+    # plt.legend()
+
+
+def show():
     plt.show()
 
 
-def framework_undirected(framework):
-    """Eg: for vertex in framework.vertices:
-               ....
-               for edge in framework.edges[vertex]:
-                   ....
-    """
-    print("Note: currently ignoring node positions!")
-    graph_undirected(framework)
+def get_axis():
+    return plt.gca()
 
-    """
-    Can networkx plot graphs + allow us to control the positions of the vertices? 
-    Find out... https://networkx.org/documentation/latest/reference/index.html
-    if not, do the following:
-    - Plot a circle using matplotlib.pyplot, at framework.positions[framework.order(index())]
-    - Add a small label (name of vertex) inside or outside the circle
-    - Plot an edge from vertex to each of the vertices in framework.edges[vertex]
-    """
+
+def plot_point(point, **style):
+    plt.scatter([point[0]], [point[1]], zorder=10, **style)
+
+
+def plot_line(points, style):
+    plt.plot([point[0] for point in points], [point[1] for point in points], style, zorder=-10, linewidth=0.5)
