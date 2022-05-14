@@ -29,7 +29,7 @@ class Timer:
         self.duration = duration
         self.start_time = time()
         if randomize:
-            self.start_time = self.start_time*np.random.rand()
+            self.start_time = self.start_time - np.random.rand()*duration
 
     def reset(self):
         self.start_time = time()

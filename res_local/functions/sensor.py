@@ -143,9 +143,9 @@ class Drone2D(PhysicalSystem):
                            process_noise_cov=self.process_noise_cov,
                            input=dt*Drone2D.B_MATRIX@self._acc)
 
-    def plot(self):
+    def plot(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.1:
             plot.plot_point(misc.tuple_from_col_vec(
                 self._pos + misc.column([0.1, 0.1])
-            ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85))
+            ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85), **kwargs)
         super().plot()

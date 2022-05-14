@@ -5,7 +5,7 @@ import numpy as np
 from functions import misc, config
 
 
-def draw_graph(graph, axis, plot_estimates=False):
+def draw_graph(graph, axis, plot_estimates=False, **kwargs):
     """
     Plots graph with vertices placed in a specific configuration
     Potentially supports 3D configurations(?)
@@ -16,10 +16,10 @@ def draw_graph(graph, axis, plot_estimates=False):
         positions = {}
         for vertex in graph.vertices.keys():
             positions[vertex] = misc.tuple_from_col_vec(graph.vertices[vertex]._pos)
-    nx.draw(nx_graph, positions, with_labels=True, ax=axis)
+    nx.draw(nx_graph, positions, with_labels=True, ax=axis, **kwargs)
 
     for vertex in graph.vertices.values():
-        vertex.plot()
+        vertex.plot(**kwargs)
 
     plt.xlim((-config.PLOT_LIM + config.OFFSET[0], config.PLOT_LIM + config.OFFSET[0]))
     plt.ylim((-config.PLOT_LIM + config.OFFSET[1], config.PLOT_LIM + config.OFFSET[1]))

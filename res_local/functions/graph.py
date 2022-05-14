@@ -51,8 +51,8 @@ class Graph:
         """Returns the index of <vertex> in <self.order>"""
         return self.order.index(vertex)
 
-    def draw(self, axis=None):
-        plot.draw_graph(self, axis)
+    def draw(self, axis=None, **kwargs):
+        plot.draw_graph(self, axis, **kwargs)
         return plot.get_axis() if not axis else axis
 
     def show(self):
