@@ -31,15 +31,14 @@ class ExtendedKalmanFilter:
 
 
 class PhysicalSystem:
-    def __init__(self, position=None):
+    def __init__(self, position=None, name=None):
+        self.name = name
         self._pos = misc.column(position)
         self.dimensions = len(position) if position else None
         if self.dimensions:
             self._vel = misc.column([0.0 for _ in range(self.dimensions)])
             self._acc = misc.column([0.0 for _ in range(self.dimensions)])
         self._simulation_clock = misc.Timer()
-
-        self.name = None
         self.neighbors = set()
         self._pos_list = []
 

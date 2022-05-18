@@ -15,17 +15,17 @@ class Graph:
         self.nameGenerator = misc.NameGenerator()
         self.is_undirected = is_undirected
 
-    def add_vertex(self, name=None, object=None):
+    def add_vertex(self, obj=None):
         """Assign name to vertex"""
-        if name is None:
-            while name not in self.vertices.keys():
-                name = self.nameGenerator.new_name()
-        elif name in self.vertices.keys():
+        if obj.name is None:
+            while obj.name not in self.vertices.keys():
+                obj.name = self.nameGenerator.new_name()
+        elif obj.name in self.vertices.keys():
             raise ValueError("Cannot add duplicate vertex name.")
 
-        self.vertices[name] = object
-        self.edges[name] = set()  # No edges added yet..
-        self.order.append(name)
+        self.vertices[obj.name] = obj
+        self.edges[obj.name] = set()  # No edges added yet..
+        self.order.append(obj.name)
         assert(len(self.vertices) == len(self.order))
 
         self.make_adjacency()  # Adj. gets padded with a row and column of 0s
@@ -46,6 +46,12 @@ class Graph:
             self.edges[vertex_2].add(vertex_1)
             self.vertices[vertex_2].neighbors.add(self.vertices[vertex_1])
             self.Adj[self.index(vertex_2), self.index(vertex_1)] = 1
+
+    def get_objects(self, keys: list):
+        return_list = []
+        for key in keys:
+            return_list.append(self.vertices[key])
+        return return_list
 
     def index(self, vertex):
         """Returns the index of <vertex> in <self.order>"""
