@@ -32,7 +32,7 @@ class Drone2DSpecial(Drone2D):
         super().__init__(*args, **kwargs)
 
     def get_gps_measurement(self):
-        return self._pos + misc.white_noise(self.gps_cov) + misc.column((0.5, -0.7))
+        return self._pos + misc.white_noise(self.gps_cov) + misc.column((0.2, -0.35))  #<-Attacker injects bias into GPS
 
     def plot(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.1:
@@ -55,8 +55,7 @@ if __name__ == "__main__":
 
     # Stationary drones:
     for i in range(13):
-        G.add_vertex(name=name_list[i],
-                     obj=Drone2D(position=positions[i],
+        G.add_vertex(obj=Drone2D(position=positions[i], name=name_list[i],
                                  trajectory=misc.fixed_point_trajectory(point=positions[i]),
                                  perfect_init_conditions=True, process_noise=[1e-7, 1e-7, 1e-8, 1e-8],
                                  poles=[-5, -5.75, -4.5, -4], init_cov=[1e-4, 1e-4, 1e-7, 1e-7]))
@@ -90,5 +89,9 @@ if __name__ == "__main__":
         G.draw(axis=plot_1, alpha=0.2)
         G_a.draw(axis=plot_1)
 
-    anim = animation.FuncAnimation(plt.gcf(), animate, tqdm(range(100)))
+    anim = animation.FuncAnimation(plt.gcf(), animate, tqdm(range(150)))
     anim.save("test.mp4", fps=30, dpi=200)
+
+    import subprocess
+    subprocess.call(["open", "test.mp4"])
+

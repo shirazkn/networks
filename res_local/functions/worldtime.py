@@ -4,14 +4,15 @@ Keeps track of various configuration options for the simulation
 Note: Do not do `from functions.worldtime import time` as that (potentially??) creates a new instance of
 WorldTime() each time its called! Use `import functions.worldtime`'` instead
 """
+from functions.config import WORLD_TIMESTEP
 
 
 class WorldTime:
-    def __init__(self, timestep=0.02):
+    def __init__(self):
         self.time = 0.0
-        self.dt = timestep
+        self.dt = WORLD_TIMESTEP
         print("New WorldTime object was created! Make sure there's only one of these...\n")
-        # TODO ^This can be checked automatically by counting instances in a shared "class-level" variable
+        # TODO ^This can be checked automatically by counting instances
 
     def step(self):
         self.time += self.dt
@@ -25,3 +26,4 @@ class WorldTime:
 
 
 time, step = WorldTime().get_functions()
+TOTAL_TIME = None

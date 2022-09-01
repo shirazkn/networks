@@ -13,7 +13,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
     def __init__(self, *args, mitigation=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.clock_2 = misc.Timer()
-        self.range_cov = [[0.001]]
+        self.range_cov = [[0.000001]]
         self.range_timer = misc.Timer(duration=config.GPS_TIMEOUT, randomize=True)
         self.mitigation = mitigation
         self.gps_residual = 0.0
@@ -28,10 +28,10 @@ class DroneWithRangeMitigation(sensor.Drone2D):
         return range_measurements
 
     def plot(self, **kwargs):
-        if self.gps_timer.get_elapsed_time() < 0.1:
+        if self.gps_timer.get_elapsed_time() < 0.35:
             plot.plot_point(misc.tuple_from_col_vec(
-                self._pos + misc.column([0.1, 0.1])
-            ), color=(0.05, 0.75, 0.2), s=30, edgecolor=(0.05, 0.85, 0.15))
+                self._pos + misc.column(config.GPS_SYMBOL_OFFSET)
+            ), color=(0.05, 0.75, 0.2), s=5, edgecolor=(0.05, 0.85, 0.15))
 
     def measure(self):
         C_matrix = []
@@ -62,17 +62,22 @@ class DroneWithRangeMitigation(sensor.Drone2D):
                             measurement_noise=block_diag(*noise_covs))
 
         if self.range_timer.get_status_and_reset() and self.mitigation:
-            self.range_residuals = []
             range_measurements = self.get_range_measurements()
-            self_position_estimate = misc.column([self.ekf.x[0][0], self.ekf.x[1][0]])
+            self_ekf_pos = misc.column([self.ekf.x[0][0], self.ekf.x[1][0]])
+            self_ref_point = misc.column([self.ref_point[0][0], self.ref_point[1][0]])
 
-            k = 0.01
+            k = 0.1
             force = misc.column([0.0, 0.0])
+            self.range_residuals = []
             for i in range(len(range_measurements)):
-                vec = range_measurements[i][0] - self_position_estimate
+                vec = range_measurements[i][0] - self_ekf_pos
                 vec_norm = la.norm(vec)
                 self.range_residuals.append(range_measurements[i][1] - vec_norm)
-                force += self.range_residuals[i] * k * (vec/vec_norm)
+                force -= self.range_residuals[-1] * k * (vec/vec_norm)
 
-            self.ekf.x -= np.block([[np.zeros([2, 2])], [np.identity(2)]]) @ force
+            # if functions.worldtime.time() > functions.worldtime.TOTAL_TIME*0.85:
+            #     if self.name in ['L', 'A']:
+            #         print(self.name, ' is using ', la.norm(force), ' force.')
+
+            self.ekf.x += np.block([[np.identity(2)*0.01], [np.identity(2)]]) @ force
 

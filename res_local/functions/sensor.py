@@ -42,7 +42,7 @@ class PhysicalSystem:
         self.neighbors = set()
         self._pos_list = []
 
-    def plot(self):
+    def plot(self, **kwargs):
         if config.PLOT_TRAJECTORIES:
             plot.plot_line(self._pos_list, 'r-')
 
@@ -71,7 +71,7 @@ class Drone2D(PhysicalSystem):
     C_MATRIX_GPS = np.identity(4)[0:2][:]
     C_MATRIX_INS = np.identity(4)[2:4][:]
 
-    def __init__(self, ins_var=0.1, gps_var=0.01, trajectory=None, perfect_init_conditions=True,
+    def __init__(self, ins_var=0.0001, gps_var=0.001, trajectory=None, perfect_init_conditions=True,
                  process_noise=[0.01, 0.01, 0.01, 0.01], poles=[-2, -4, -2, -3], init_cov=[1.0, 1.0, 1.0, 1.0],
                  **kwargs):
         super().__init__(**kwargs)
@@ -94,6 +94,10 @@ class Drone2D(PhysicalSystem):
             self._pos = self.ref_point[0:2]
             self._vel = self.ref_point[2:4]
             self.ekf.x = self.ref_point
+        else:
+            self._pos = self.ref_point[0:2]
+            self._vel = self.ref_point[2:4]
+            self.ekf.x = self.ref_point + 0.1*Drone2D.C_MATRIX_GPS.T @ misc.white_noise(self.gps_cov)
 
         # Pole placement of (A + BK)
         self.K = -1.0*place_poles(Drone2D.A_MATRIX, Drone2D.B_MATRIX, poles).gain_matrix
@@ -143,8 +147,8 @@ class Drone2D(PhysicalSystem):
                            input=dt*Drone2D.B_MATRIX@self._acc)
 
     def plot(self, **kwargs):
-        if self.gps_timer.get_elapsed_time() < 0.1:
+        if self.gps_timer.get_elapsed_time() < 0.15:
             plot.plot_point(misc.tuple_from_col_vec(
                 self._pos + misc.column([0.1, 0.1])
-            ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85), **kwargs)
-        super().plot()
+            ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85))
+        # super().plot()

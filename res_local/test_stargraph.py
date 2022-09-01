@@ -12,7 +12,7 @@ if __name__ == "__main__":
     edges_list = [(0, 2), (1, 2), (3, 2), (4, 2)]
     F = graph.Graph()
     for name, position in zip(name_list, positions_list):
-        F.add_vertex(name, sensor.PhysicalSystem(position=position))
+        F.add_vertex(sensor.PhysicalSystem(name=name, position=position))
 
     for edge in edges_list:
         F.add_edge(name_list[edge[0]], name_list[edge[1]])
