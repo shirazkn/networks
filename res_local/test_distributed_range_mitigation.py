@@ -64,10 +64,10 @@ if __name__ == "__main__":
     attacker_m = deepcopy(attacker)
 
     for v in G.vertices.values():
-        v.mitigation = False
+        v.if_mitigation = False
 
     for v in G_m.vertices.values():
-        v.mitigation = True
+        v.if_mitigation = True
 
     if SECURED_NETWORK:
         G.add_edge('L', 'E')

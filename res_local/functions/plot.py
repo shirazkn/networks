@@ -41,9 +41,9 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
     # edges["J"].pop("M")
     # edges["M"].pop("J")
 
-    if config.MARKER_TYPE is 'drone':
+    if config.MARKER_TYPE == 'drone':
         kwargs["with_labels"] = False
-        kwargs["node_size"] = 630
+        kwargs["node_size"] = 450
         kwargs["node_color"] = '#ffffff'
         kwargs["width"] = 1.2
         kwargs["style"] = 'dashed'
@@ -56,7 +56,7 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
         axis = fig.gca()
 
     if config.MARKER_TYPE == 'drone':
-        imgbox = get_image_box("media/drone.png", zoom=0.17)
+        imgbox = get_image_box("media/drone.png", zoom=0.13)
         for v in graph.vertices.values():
             plot_img((v._pos[0][0], v._pos[1][0]), imgbox, axis, zorder=30)
 

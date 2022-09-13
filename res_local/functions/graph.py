@@ -61,6 +61,13 @@ class Graph:
         plot.draw_graph(self, axis, title, **kwargs)
         return plot.get_axis() if not axis else axis
 
+    def get_directed_edge_list(self):
+        edge_list = []
+        for starting_vertex in self.edges.keys():
+            for ending_vertex in self.edges[starting_vertex]:
+                edge_list.append((starting_vertex, ending_vertex))
+        return edge_list
+
     def show(self):
         plot.show()
 

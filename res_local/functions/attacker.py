@@ -1,3 +1,8 @@
+"""
+Note: The optimization approach is too slow, I just use a constant bias injection attack instead
+see Attacker.design_greedy_attack
+"""
+
 import types
 import cvxpy as cvx
 import dccp

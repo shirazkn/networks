@@ -3,6 +3,9 @@ import numpy as np
 import numpy.linalg as la
 from scipy.linalg import block_diag
 
+import functions.worldtime
+time = functions.worldtime.time
+
 
 def get_residual_power(measurement, predicted_measurement, noise_power):
     residual = measurement - predicted_measurement
@@ -10,12 +13,12 @@ def get_residual_power(measurement, predicted_measurement, noise_power):
 
 
 class DroneWithRangeMitigation(sensor.Drone2D):
-    def __init__(self, *args, mitigation=True, **kwargs):
+    def __init__(self, *args, if_mitigation=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.clock_2 = misc.Timer()
         self.range_cov = [[0.000001]]
         self.range_timer = misc.Timer(duration=config.GPS_TIMEOUT, randomize=True)
-        self.mitigation = mitigation
+        self.if_mitigation = if_mitigation
         self.gps_residual = 0.0
         self.ins_residual = 0.0
         self.range_residuals = []
@@ -61,7 +64,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
                             measurement=np.concatenate(measurements),
                             measurement_noise=block_diag(*noise_covs))
 
-        if self.range_timer.get_status_and_reset() and self.mitigation:
+        if self.range_timer.get_status_and_reset() and self.if_mitigation:
             range_measurements = self.get_range_measurements()
             self_ekf_pos = misc.column([self.ekf.x[0][0], self.ekf.x[1][0]])
             self_ref_point = misc.column([self.ref_point[0][0], self.ref_point[1][0]])
