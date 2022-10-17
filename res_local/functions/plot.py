@@ -21,6 +21,8 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
     Potentially supports 3D configurations(?)
     """
     nx_graph = nx.Graph(graph.edges)
+
+    # If the vertices have 'positions' use those
     positions = None
     if graph.vertices[graph.order[0]]._pos is not None:
         positions = {}
@@ -28,18 +30,6 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
             positions[vertex] = misc.tuple_from_col_vec(graph.vertices[vertex]._pos)
 
     kwargs["with_labels"] = True
-
-    # TODO : Remove this stuff after the TII meeting
-    # edgelist = list(nx_graph.edges())
-    # edge_colors = ["#000000" for _ in range(len(edgelist))]
-    # edge_colors[edgelist.index(('E', 'L'))] = config.COLORS["dark_green"]
-    # edge_colors[edgelist.index(('J', 'M'))] = config.COLORS["dark_green"]
-    # kwargs["edge_color"] = edge_colors
-    # kwargs["edgelist"] = edgelist
-    # edges["L"].pop("E")
-    # edges["E"].pop("L")
-    # edges["J"].pop("M")
-    # edges["M"].pop("J")
 
     if config.MARKER_TYPE == 'drone':
         kwargs["with_labels"] = False
@@ -49,6 +39,26 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
         kwargs["style"] = 'dashed'
         kwargs["node_shape"] = 's'
         kwargs["edge_color"] = '#1f78b4'
+
+    if config.MARKER_TYPE == 'ieee_labeled_graph':
+        kwargs["node_size"] = 300
+        kwargs["node_color"] = kwargs.get("node_color", '#000000')
+        kwargs["edge_color"] = "tab:gray"
+        kwargs["width"] = 1.0
+        kwargs['style'] = 'solid'
+        kwargs['font_color'] = "white"
+        kwargs['font_size'] = 15
+        kwargs['font_weight'] = 'bold'
+
+    else:
+        kwargs["node_size"] = 150
+        kwargs["node_color"] = kwargs.get("node_color", '#000000')
+        kwargs["edge_color"] = "tab:gray"
+        kwargs["width"] = 1.0
+        kwargs['style'] = 'solid'
+        kwargs['font_color'] = "white"
+        kwargs['font_size'] = 10
+        kwargs['font_weight'] = 'bold'
 
     nx.draw(nx_graph, positions, ax=axis, **kwargs)
     fig = plt.gcf()

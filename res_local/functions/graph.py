@@ -28,8 +28,6 @@ class Graph:
         self.order.append(obj.name)
         assert(len(self.vertices) == len(self.order))
 
-        self.make_adjacency()  # Adj. gets padded with a row and column of 0s
-
     def make_adjacency(self):
         self.Adj = np.zeros((len(self.vertices), len(self.vertices)))
         for i, vertex_i in enumerate(self.order):
@@ -40,12 +38,19 @@ class Graph:
     def add_edge(self, vertex_1, vertex_2):
         self.edges[vertex_1].add(vertex_2)
         self.vertices[vertex_1].neighbors.add(self.vertices[vertex_2])
-        self.Adj[self.index(vertex_1), self.index(vertex_2)] = 1
-
         if self.is_undirected:
             self.edges[vertex_2].add(vertex_1)
             self.vertices[vertex_2].neighbors.add(self.vertices[vertex_1])
-            self.Adj[self.index(vertex_2), self.index(vertex_1)] = 1
+
+    def set_edges_by_distance(self, distance):
+        for key in self.edges:
+            self.edges[key] = set()
+
+        for i in range(len(self.vertices)):
+            v_1 = self.order[i]
+            for v_2 in self.order[i+1:]:
+                if np.linalg.norm(self.vertices[v_1]._pos - self.vertices[v_2]._pos) < distance:
+                    self.add_edge(v_1, v_2)
 
     def get_objects(self, keys: list):
         return_list = []

@@ -30,7 +30,9 @@ if __name__ == "__main__":
     positions = [(0.3, 0), (1.0, 0.7), (1.8, 0.3), (2.6, -0.6), (1.5, 1.3),  # A..E
                  (-0.7, 0.4), (-0.3, 2.1), (3.0, 0.7),  # ..H
                  (-0.1, 1.1), (0.5, 1.5), (1.5, -0.5),  # ..K
-                 (0.5, 2.5), (1.4, 2.1), (2.5, 1.35), (2.7, 1.9)]  # ..N
+                 (0.5, 2.5), (1.4, 2.1), (2.1, 1.32), (2.7, 1.9),
+
+                 ]  # ..N
     edges = [['A', 'F'], ['A', 'I'], ['A', 'B'], ['G', 'I'], ['G', 'J'], ['G', 'I'], ['J', 'I'], ['J', 'B'],
              ['B', 'C'], ['B', 'E'], ['B', 'K'], ['C', 'E'], ['C', 'H'], ['C', 'D'], ['C', 'K'], ['K', 'D'],
              ['I', 'F'], ['I', 'F'], ['D', 'H'], ['J', 'L'], ['L', 'M'], ['M', 'E'], ['N', 'E'], ['N', 'H'],
@@ -106,7 +108,6 @@ if __name__ == "__main__":
             G.draw(axis=plot_1, alpha=0.2)
         G_m.draw(axis=plot_1)
 
-    worldtime.TOTAL_TIME = TIMESTEPS * config.WORLD_TIMESTEP
     anim = animation.FuncAnimation(plt.gcf(), animate, tqdm(range(TIMESTEPS)))
     anim.save("test.mp4", fps=30, dpi=200)
 

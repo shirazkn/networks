@@ -1,6 +1,5 @@
 """
-Thu Sep 1: Uses the CLBIF (Centralized L-Banded Information Filter) of Moura, et al.
-combined with the vertex relabeling approach I developed
+Thu Sep 1: Uses a centralized EKF to detect GPS spoofing attacks
 """
 import types
 
@@ -11,7 +10,7 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config, plot, attacker
+from functions import worldtime, sensor, misc, graph, config, attacker
 
 time = worldtime.time
 
@@ -183,7 +182,6 @@ if __name__ == "__main__":
         plot_1.cla()
         G.draw(axis=plot_1)
 
-    worldtime.TOTAL_TIME = TIMESTEPS * config.WORLD_TIMESTEP
     anim = animation.FuncAnimation(plt.gcf(), animate, tqdm(range(TIMESTEPS)))
     anim.save("test.mp4", fps=30, dpi=200)
 

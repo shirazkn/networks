@@ -147,8 +147,9 @@ class Drone2D(PhysicalSystem):
                            input=dt*Drone2D.B_MATRIX@self._acc)
 
     def plot(self, **kwargs):
-        if self.gps_timer.get_elapsed_time() < 0.15:
-            plot.plot_point(misc.tuple_from_col_vec(
-                self._pos + misc.column([0.1, 0.1])
-            ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85))
+        # if self.gps_timer.get_elapsed_time() < 0.15:
+        #     plot.plot_point(misc.tuple_from_col_vec(
+        #         self._pos + misc.column([0.1, 0.1])
+        #     ), color=(0.1, 0.85, 0.2), s=30, edgecolor=(0.85, 0.65, 0.85))
         # super().plot()
+        pass

@@ -42,7 +42,6 @@ if __name__ == "__main__":
         G.draw(axis=plot_1)
 
     TIMESTEPS = 40
-    worldtime.TOTAL_TIME = TIMESTEPS * config.WORLD_TIMESTEP
     anim = animation.FuncAnimation(plt.gcf(), animate, tqdm(range(TIMESTEPS)))
     anim.save("test.mp4", fps=30, dpi=200)
 

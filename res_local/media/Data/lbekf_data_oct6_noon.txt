@@ -1,0 +1,487 @@
+"""
+Fri Sep 16: Uses the CLBIF (Centralized L-Banded Information Filter) algorithm of Moura, et al., called as LBEKF here
+The vertices of the graph are 'relabeled' to reduce the bandwidth of the Laplaccian matrix.
+"""
+import pdb
+import types
+
+import numpy as np
+import scipy.linalg as spl
+
+import pickle
+from matplotlib import cm
+from matplotlib import pyplot as plt
+from tqdm import tqdm
+from copy import deepcopy
+from functions import worldtime, sensor, misc, graph, config
+import time
+
+plt.rcParams["text.latex.preamble"] = r"\usepackage{amsfonts}"
+
+TIMESTEPS = 100
+BANDWIDTH = 20
+MONTE_CARLO_TRIALS = 5000
+PLOT_AGENTS = ['1', '10', '15', '20', '30']
+
+PLOT_LIM = 26
+RES_PLOT_LIM = 10.0
+RES_PLOT_2_LIM = 200.0
+OFFSET = [13, 6.5]
+# config.MARKER_TYPE = 'drone'
+INIT_VAR = 5.0
+GPS_STD_DEV = np.sqrt(2)
+RANGE_STD_DEV = np.sqrt(10)
+PROCESS_VAR = 0.02
+LEVEL = 20.0
+
+DEFAULT_COLORS = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
+def generate_sparse_band_matrix(size, bandwidth):
+    """
+    Generates a random diagonally dominant matrix (which is SPD due to Gershgorin theorem)
+    """
+    M = np.zeros([size, size])
+    for i in range(size):
+        for j in range(i+1, size):
+            if np.abs(i-j) <= bandwidth:
+                M[i][j] = np.random.uniform(-1.0, 1.0)
+                M[j][i] = M[i][j]
+        M[i][i] = 15.0
+    return M
+
+
+def test_l_band_inversion(size=500, bandwidths=None):
+    if bandwidths is None:
+        bandwidths = [2, 5, 10, 15, 20]
+    markerstyles = ['s', 'o', '^', 'v', 'D']
+    style = 0
+
+    for bandwidth in tqdm(bandwidths):
+        M = generate_sparse_band_matrix(size=size, bandwidth=bandwidth)
+        M = M*(1/frob_norm(M))
+        M_inv = np.linalg.inv(M)
+        M_inv_F = frob_norm(M)
+        frob_norms = []
+        approx_bandwidths = range(50)
+        for l in approx_bandwidths:
+            frob_norms.append((frob_norm(l_band_inversion(M, l) - M_inv))/M_inv_F)
+        plt.plot(approx_bandwidths, frob_norms, marker=markerstyles[style], markersize=2.5, label=bandwidth)
+        style += 1
+    plt.ylabel(r"Approximation Error $\Big(\big{\|} A^{-1} - \breve A^{-1}\big{\|}_{\small F}\Big)$")
+    plt.xlabel(r"Bandwidth of $\breve A^{-1}$")
+    plt.xlim([0, 50])
+    # plt.ylim([0, 80])
+    plt.legend(title=r"Bandwidth of $A$")
+    plt.gcf().set_tight_layout(True)
+    plt.show()
+
+
+def frob_norm(M):
+    return np.linalg.norm(M, ord='fro')
+
+
+def test_l_band_speedup(size, bandwidth, display=False):
+    A = generate_sparse_band_matrix(size, size)
+    start = time.time()
+    A_inv = np.linalg.inv(A)
+    time_inv = time.time() - start
+
+    start = time.time()
+    A_lband_inv = l_band_inversion(A, bandwidth)
+    time_lband_inv = time.time() - start
+
+    if display:
+        print(f"Inversion took {time_inv} seconds, approximation took {time_lband_inv} seconds.")
+        print(f"Error was {np.linalg.norm(A_inv - A_lband_inv)}.")
+
+    return time_inv, time_lband_inv, np.linalg.norm(A_inv - A_lband_inv)
+
+
+def l_band_inversion(M, l):
+    """
+    See Kavcic & Moura, 2000
+    """
+    n = len(M)
+    M_inv = np.zeros([n, n])
+    for i in range(n - l):
+        M_inv[i:i+l+1, i:i+l+1] += np.linalg.inv(M[i:i+l+1, i:i+l+1])
+
+    for i in range(1, n - l):
+        M_inv[i:i+l, i:i+l] -= np.linalg.inv(M[i:i+l, i:i+l])
+    return M_inv
+
+
+def l_band_extension(M, l):
+    return np.linalg.inv(l_band_inversion(M, l))
+
+
+class LBEKF:
+    def __init__(self, network, estimate, beacon_agents, estimate_cov, process_cov, gps_std_dev=0.01,
+                 range_std_dev=0.1, bandwidth=None):
+        self.dim = 2
+        self.num_agents = len(network.vertices)
+        self.beacon_agents = beacon_agents
+        self.beacon_agent_indices = [network.index(agent) for agent in beacon_agents]
+
+        if bandwidth is None:
+            bandwidth = self.dim * self.num_agents - 1
+        self.bandwidth = bandwidth
+
+        self.pos = deepcopy(estimate)
+        self.vel = np.zeros_like(self.pos)
+
+        self.estimate_cov = deepcopy(estimate_cov)
+        self.process_cov = spl.block_diag(*[deepcopy(process_cov) for _ in range(self.num_agents)])
+        self.post_cov = spl.block_diag(*[deepcopy(estimate_cov) for _ in range(self.num_agents)])
+        self.prior_cov = self.post_cov + self.process_cov
+
+        self.gps_std_dev = gps_std_dev
+        self.range_std_dev = range_std_dev
+
+        self.edge_list = None
+        self.edge_list_indices = None
+        self.Rig = None
+        self.K = None
+
+    def re_initialize(self, estimate):
+        self.pos = deepcopy(estimate)
+        self.post_cov = spl.block_diag(*[deepcopy(self.estimate_cov) for _ in range(self.num_agents)])
+        self.prior_cov = self.post_cov + self.process_cov
+
+    def get_subvector(self, i):
+        return self.pos[self.dim * i: self.dim * (i+1)]
+
+    def update_edges(self, network):
+        self.edge_list = network.get_directed_edge_list()
+        self.edge_list_indices = []
+        for edge in self.edge_list:
+            self.edge_list_indices.append((network.index(edge[0]), network.index(edge[1])))
+
+        self.Rig = np.zeros([len(self.edge_list_indices), 2*self.num_agents])
+        self.K = np.zeros([self.dim * self.num_agents, self.dim*len(self.beacon_agents) + len(self.edge_list_indices)])
+
+    def update_rigidity_matrix(self, G):
+        # Weighted rigidity matrix, essentially the H matrix for range mmts.
+        self.update_edges(G)
+        for i, e in enumerate(self.edge_list_indices):
+            edge_pos = self.get_subvector(e[0]) - self.get_subvector(e[1])
+            edge_length = np.linalg.norm(edge_pos)
+            self.Rig[i, (self.dim*e[0])
+                        :((self.dim*e[0])+self.dim)] = (edge_pos.T / edge_length)
+            self.Rig[i, (self.dim*e[1])
+                        :((self.dim*e[1])+self.dim)] = (-1*edge_pos.T / edge_length)
+
+    def update(self, network: graph.Graph, measurements):
+        start_time = time.time()
+
+        gps_H = np.zeros([self.dim * len(self.beacon_agents), self.dim * self.num_agents])
+        for i, v in enumerate(self.beacon_agents):
+            index = network.index(v)
+            gps_H[i*self.dim:(i+1)*self.dim, index*self.dim:(index+1)*self.dim] = np.identity(2)
+
+        meas_inf = (1/self.gps_std_dev**2) * gps_H.T @ gps_H + (1/self.range_std_dev**2) * self.Rig.T @ self.Rig
+        self.post_cov = l_band_inversion(l_band_inversion(self.prior_cov, self.bandwidth) + meas_inf, self.bandwidth)
+        self.prior_cov = self.post_cov + self.process_cov
+
+        self.K[:, :] = self.post_cov @ (np.concatenate([(1/self.gps_std_dev**2) * gps_H,
+                                                        (1/self.range_std_dev**2) * self.Rig])).T
+        self.pos = self.pos + self.vel + (self.K @ self.get_innovations(measurements))
+
+        return time.time() - start_time
+
+    def get_innovations(self, measurements):
+        innovations = np.zeros([self.dim*len(self.beacon_agents) + len(self.edge_list_indices), 1])
+        _i = 0
+        for ind in self.beacon_agent_indices:
+            innovations[_i:_i + self.dim] = (measurements[_i:_i + self.dim] - self.get_subvector(ind))
+            _i = _i + 2
+
+        for e_ind in self.edge_list_indices:
+            innovations[_i][0] = (measurements[_i][0]
+                                  - np.linalg.norm(self.get_subvector(e_ind[0]) - self.get_subvector(e_ind[1])))
+            _i = _i + 1
+
+        return innovations
+
+    def get_measurements(self, network):
+        measurements = np.zeros([self.dim*len(self.beacon_agents) + len(self.edge_list_indices), 1])
+        _i = 0
+        for name in self.beacon_agents:
+            measurements[_i:_i + self.dim] = (network.vertices[name]._pos
+                                              + misc.white_noise(cov=np.identity(2)*self.gps_std_dev**2))
+            _i = _i + 2
+
+        for e, e_ind in zip(self.edge_list, self.edge_list_indices):
+            measurements[_i][0] = (np.linalg.norm(network.vertices[e[0]]._pos - network.vertices[e[1]]._pos)
+                                   + misc.white_noise(cov=[[self.range_std_dev**2]]))
+            _i = _i + 1
+
+        return measurements
+
+
+def plot_covariance_ellipse(pos, cov, level, alternate_style=0, num_cells=40):
+    cov_inv = np.linalg.inv(cov)
+    x = np.linspace(-7.0, 7.0, num_cells)
+    y = np.linspace(-7.0, 7.0, num_cells)
+    z = np.zeros([num_cells, num_cells])
+    for x_ind, x_val in enumerate(x):
+        for y_ind, y_val in enumerate(y):
+            _vec = misc.column([x_val, y_val])
+            z[x_ind, y_ind] = _vec.T @ cov_inv @ _vec
+
+    for index in range(num_cells):
+        x[index] += pos[0][0]
+        y[index] += pos[1][0]
+
+    if alternate_style:
+        cf =plt.contourf(x, y, z, levels=[0, level], alpha=0.25, cmap='GnBu')
+        plt.contour(x, y, z, levels=[0, level], alpha=0.8, cmap='GnBu', linewidths=0.6, linestyles='dashed')
+    else:
+        cf = plt.contourf(x, y, z, levels=[0, level], alpha=0.25, cmap='YlOrRd')
+        plt.contour(x, y, z, levels=[0, level], alpha=0.8, cmap='YlOrRd', linewidths=0.6, linestyles='dotted')
+
+    return cf
+
+
+def compare_with_ekf(bandwidth, monte_carlo=False):
+
+    print(f"Running LBEKF with bandwidth {bandwidth}.") if bandwidth else print("Running EKF.")
+    positions = [(3.0, 0), (18.0, 3.0), (11.3, 28.2), (26.3, -0.2), (15.0, 13.0),
+                 (-9.0, 12.1), (-2.9, 19.1), (25.5, 9.1), (34.4, 4.2), (-7.9, -5.9), (30.8, -14.2),
+                 (0.2, 7.8), (5.6, 16.8), (27.9, 27.2), (15.9, -9.4), (-5.2, 27.6), (35.7, 23.21),
+                 (4.6, 26.2), (14, 21), (32.7, 11.5), (20.9, 18.3), (30.3, 19.5), (22.7, -12.5),
+                 (-6.3, 1.5), (-0.1, -7.4), (7.4, -12.8), (19.7, 28.2), (10.9, -1.8), (-2.5, -14.26),
+                 (34.5, -5.4)]
+    name_list = misc.NameGenerator(name_type='number').generate(len(positions))
+    ordered_positions = sorted(positions, key=lambda pos: [pos[0], pos[1]])
+
+    G = graph.Graph()
+    for i in range(len(name_list)):
+        G.add_vertex(obj=sensor.Drone2D(name=name_list[i], position=ordered_positions[i],
+                                        perfect_init_conditions=False, process_noise=[1e-8, 1e-8, 1e-8, 1e-8],
+                                        poles=[-2, -3.75, -5.5, -6], init_cov=[1e-4, 1e-4, 1e-7, 1e-7]))
+
+    G.set_edges_by_distance(distance=15.0)
+    graph_bandwidth = 0
+    for v in G.vertices:
+        for v_2 in G.edges[v]:
+            graph_bandwidth = max(int(v) - int(v_2), graph_bandwidth)
+    print(f"Graph has bandwidth {graph_bandwidth}.")
+    # beacons_agents = ['1', '3', '5', '6', '7', '10', '13', '15', '17', '18']
+    beacons_agents = ['1', '2', '3', '4', '27', '28', '29', '30']
+    # beacons_agents = [str(num+1) for num in range(10)]
+    ekf = LBEKF(network=G, estimate=np.concatenate([misc.column(G.vertices[vtx]._pos)
+                                                    + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                    for vtx in G.order]),
+                beacon_agents=beacons_agents,
+                estimate_cov=np.identity(2)*INIT_VAR, process_cov=1.0*PROCESS_VAR*np.identity(2), gps_std_dev=GPS_STD_DEV,
+                range_std_dev=RANGE_STD_DEV,
+                bandwidth=None)
+
+    lbekf = deepcopy(ekf)
+    lbekf.bandwidth = bandwidth
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------------
+    # ================================ Simulation without Monte Carlo =================================================
+    # -----------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------------
+
+    if not monte_carlo:
+        #  INITIAL NETWORK PLOT -------------------------------------------------------------
+        plt.figure(figsize=(7.8, 7.2), dpi=1000)
+        axis = plt.gca()
+        G.draw(axis=axis)
+        G.draw(nodelist=ekf.beacon_agents, edgelist=[], node_color='#650000', node_shape='s', axis=axis)
+        plt.xlim(OFFSET[0]-PLOT_LIM, OFFSET[0]+PLOT_LIM)
+        plt.ylim(OFFSET[1]-PLOT_LIM, OFFSET[1]+PLOT_LIM)
+        plt.savefig("initial_network.png")
+
+        PLOT_DICT = {v: [] for v in G.vertices}
+        ekf_residuals = deepcopy(PLOT_DICT)
+        lbekf_residuals = deepcopy(PLOT_DICT)
+        ekf_iteration_times = []
+        lbekf_iteration_times = []
+
+        def iterate(_):
+            for vertex in G.vertices:
+                _index = G.index(vertex)
+                ekf_residuals[vertex].append(np.linalg.norm(G.vertices[vertex]._pos - ekf.get_subvector(_index)))
+                lbekf_residuals[vertex].append(np.linalg.norm(G.vertices[vertex]._pos - lbekf.get_subvector(_index)))
+            worldtime.step()
+            for vertex in G.vertices.values():
+                vertex._pos += misc.white_noise(PROCESS_VAR*np.identity(2))
+
+            for vertex in G.vertices.values():
+                vertex.update_logic()
+
+            G.set_edges_by_distance(distance=15.0)
+
+            ekf.update_rigidity_matrix(G)
+            lbekf.update_rigidity_matrix(G)
+            measurements = ekf.get_measurements(G)
+            ekf_iteration_times.append(ekf.update(G, measurements))
+            lbekf_iteration_times.append(lbekf.update(G, measurements))
+
+        for _ in tqdm(range(TIMESTEPS)):
+            iterate(_)
+
+        # NETWORK ESTIMATES PLOT -------------------------------------------------------------
+        plt.figure(figsize=(7.8, 7.2), dpi=1000)
+        G.draw()
+        G.draw(nodelist=ekf.beacon_agents, edgelist=[], node_color='#650000', node_shape='s')
+        plt.xlim(OFFSET[0]-PLOT_LIM, OFFSET[0]+PLOT_LIM)
+        plt.ylim(OFFSET[1]-PLOT_LIM, OFFSET[1]+PLOT_LIM)
+        for v in G.vertices:
+            index = G.index(v)
+            estimate = ekf.get_subvector(index)
+            covariance = ekf.post_cov[index*2:(index+1)*2, index*2:(index+1)*2]
+            plot_covariance_ellipse(pos=estimate, cov=covariance, level=LEVEL)
+            estimate = lbekf.get_subvector(index)
+            covariance = lbekf.post_cov[index*2:(index+1)*2, index*2:(index+1)*2]
+            plot_covariance_ellipse(pos=estimate, cov=covariance, level=LEVEL, alternate_style=True)
+        plt.savefig("final_network.png")
+
+        import subprocess
+        subprocess.call(["open", "initial_network.png"])
+        subprocess.call(["open", "final_network.png"])
+
+    if monte_carlo:
+        G_shuffled = deepcopy(G)
+        for i in range(len(G.vertices)):
+            name = G_shuffled.order[i]
+            G_shuffled.vertices[name]._pos = misc.column(positions[i])
+        G_shuffled.set_edges_by_distance(distance=15.0)
+        lbekf_shuffled = deepcopy(lbekf)
+        new_labels = {label: None for label in G.vertices}
+        for v in G.vertices:
+            for v_shuffled in G_shuffled.vertices:
+                if np.linalg.norm(G.vertices[v]._pos - G_shuffled.vertices[v_shuffled]._pos) < 0.0001:
+                    new_labels[v] = v_shuffled
+                    break
+        print(new_labels)
+        lbekf_shuffled.beacon_agents = [new_labels[label] for label in ekf.beacon_agents]
+        lbekf_shuffled.beacon_agent_indices = [G_shuffled.index(label) for label in lbekf_shuffled.beacon_agents]
+        lbekf_shuffled.pos = np.concatenate([misc.column(G_shuffled.vertices[vtx]._pos)
+                                                  + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                  for vtx in G_shuffled.order])
+
+        PLOT_DICT = {v: np.zeros([TIMESTEPS, 1]) for v in G.vertices}
+        ekf_residuals = deepcopy(PLOT_DICT)
+        lbekf_residuals = deepcopy(PLOT_DICT)
+        lbekf_shuffled_residuals = deepcopy(PLOT_DICT)
+
+        def squared_norm(vec):
+            return float(np.dot(vec.T, vec))
+
+        def iterate(i):
+            for vertex in G.vertices:
+                ekf_residuals[vertex][i] += squared_norm(G.vertices[vertex]._pos - ekf.get_subvector(G.index(vertex)))
+                lbekf_residuals[vertex][i] += squared_norm(G.vertices[vertex]._pos - lbekf.get_subvector(G.index(vertex)))
+
+                new_vertex = new_labels[vertex]
+                lbekf_shuffled_residuals[new_vertex][i] += squared_norm(G_shuffled.vertices[new_vertex]._pos -
+                                                                        lbekf_shuffled.get_subvector(G_shuffled.index(new_vertex)))
+            for vertex in G.vertices:
+                G.vertices[vertex]._pos += misc.white_noise(PROCESS_VAR*np.identity(2))
+                G_shuffled.vertices[new_labels[vertex]]._pos = G.vertices[vertex]._pos
+
+            G.set_edges_by_distance(distance=15.0)
+            G_shuffled.set_edges_by_distance(distance=15.0)
+
+            lbekf_shuffled.update_rigidity_matrix(G_shuffled)
+            measurements_shuffled = lbekf_shuffled.get_measurements(G_shuffled)
+            lbekf_shuffled.update(G_shuffled, measurements_shuffled)
+
+            ekf.update_rigidity_matrix(G)
+            lbekf.update_rigidity_matrix(G)
+            measurements = ekf.get_measurements(G)
+            ekf.update(G, measurements)
+            lbekf.update(G, measurements)
+
+        noise_dict = {v: None for v in G.vertices}
+        for _ in tqdm(range(MONTE_CARLO_TRIALS)):
+            # Reset the graph
+            for i in range(len(G.vertices)):
+                G.vertices[G.order[i]]._pos = misc.column(ordered_positions[i])
+                G_shuffled.vertices[new_labels[G.order[i]]]._pos = G.vertices[G.order[i]]._pos
+            G.set_edges_by_distance(distance=15.0)
+            G_shuffled.set_edges_by_distance(distance=15.0)
+
+            # Reset the estimators
+            for v in G.order:
+                noise_dict[v] = misc.white_noise(cov=np.identity(2) * INIT_VAR)
+            ekf.re_initialize(np.concatenate([misc.column(G.vertices[vtx]._pos) + noise_dict[vtx] for vtx in G.order]))
+            lbekf.re_initialize(ekf.pos)
+            lbekf_shuffled.re_initialize(np.concatenate([misc.column(G_shuffled.vertices[vtx]._pos)
+                                                         + noise_dict[new_labels[vtx]] for vtx in G_shuffled.order]))
+
+            for i in range(TIMESTEPS):
+                iterate(i)
+
+        # ERROR PLOT ----------------------------------------------------------------------
+        fig, axes = plt.subplots()
+        plot_agents = PLOT_AGENTS
+        colors = cm.get_cmap('viridis', len(plot_agents)).colors
+        for i in range(len(plot_agents)):
+            v = plot_agents[i]
+            plt.plot(ekf_residuals[v]/MONTE_CARLO_TRIALS, color=colors[i])
+            plt.plot(lbekf_residuals[v]/MONTE_CARLO_TRIALS, color=colors[i], linestyle='dashed')
+            plt.plot(lbekf_shuffled_residuals[new_labels[v]]/MONTE_CARLO_TRIALS,  color=colors[i], linestyle='dotted')
+
+        plt.ylabel(r'Mean Squared Error (MSE)')
+        plt.xlabel(r'Timestep')
+        plt.xlim([0, TIMESTEPS])
+        plt.ylim([0, RES_PLOT_LIM])
+        lines = axes.get_lines()
+        legend1 = plt.legend([lines[i] for i in [0, 1, 2]], ["EKF", "LB-EKF+VR", "LB-EKF"], loc='upper center')
+        legend2 = plt.legend([lines[i] for i in [int(_i*3) for _i in range(len(plot_agents))]],
+                             [str("Agent " + str(v)) for v in plot_agents], loc=1)
+        axes.add_artist(legend1)
+        axes.add_artist(legend2)
+        plt.show()
+        # ERROR PLOT 2 ----------------------------------------------------------------------
+        # plt.subplots(figsize=(4.2, 3.75), dpi=1000)
+        plt.plot(np.sum([ekf_residuals[v] for v in G.vertices], 0)/MONTE_CARLO_TRIALS, color='black', label="EKF")
+        plt.plot(np.sum([lbekf_residuals[v] for v in G.vertices], 0)/MONTE_CARLO_TRIALS, color='black',
+                 linestyle='dashed', label="LB-EKF+VR")
+        plt.plot(np.sum([lbekf_shuffled_residuals[new_labels[v]] for v in G.vertices], 0)/MONTE_CARLO_TRIALS,
+                 color='black', linestyle='dotted', label="LB-EKF")
+        plt.ylabel(r'Total Mean Squared Error (MSE)')
+        plt.xlabel(r'Timestep')
+        plt.xlim([0, TIMESTEPS])
+        plt.ylim([0, RES_PLOT_2_LIM])
+        plt.legend()
+        plt.show()
+
+        _last_run_data = open(r'media/last_run_data.pkl', 'wb')
+        pickle.dump({"ekf_residuals": ekf_residuals, "lbekf_residuals": lbekf_residuals,
+                     "lbekf_shuffled_residuals": lbekf_shuffled_residuals, "MONTE_CARLO_TRIALS": MONTE_CARLO_TRIALS},
+                    _last_run_data)
+        _last_run_data.close()
+
+
+def load_data(file_name):
+    # new_labels = {'1': '6', '2': '10', '3': '24', '4': '16', '5': '7', '6': '29', '7': '25', '8': '12', '9': '1',
+    # '10': '18', '11': '13', '12': '26', '13': '28', '14': '3', '15': '19', '16': '5', '17': '15', '18': '2',
+    # '19': '27', '20': '21', '21': '23', '22': '8', '23': '4', '24': '14', '25': '22', '26': '11', '27': '20',
+    # '28': '9', '29': '30', '30': '17'}
+    # TIMESTEPS = 100
+    import pickle
+    from matplotlib import cm
+    from matplotlib import pyplot as plt
+    with open(file_name, 'rb') as f:
+        data = pickle.load(f)
+
+    ekf_residuals, lbekf_residuals, lbekf_shuffled_residuals, MONTE_CARLO_TRIALS = (data["ekf_residuals"],
+                                                                                    data["lbekf_residuals"],
+                                                                                    data["lbekf_shuffled_residuals"],
+                                                                                    data["MONTE_CARLO_TRIALS"])
+
+
+if __name__ == "__main__":
+    monte_carlo = False
+    if MONTE_CARLO_TRIALS >= 1:
+        monte_carlo = True
+    compare_with_ekf(bandwidth=BANDWIDTH, monte_carlo=monte_carlo)

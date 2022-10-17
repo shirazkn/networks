@@ -26,4 +26,3 @@ class WorldTime:
 
 
 time, step = WorldTime().get_functions()
-TOTAL_TIME = None

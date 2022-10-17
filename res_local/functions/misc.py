@@ -7,12 +7,22 @@ time = functions.worldtime.time
 
 class NameGenerator:
     """Generates names 'A', 'B', ..."""
-    def __init__(self):
+    def __init__(self, name_type='letter'):
+        if name_type == 'number':
+            self.new_name = self.new_name_number
+        elif name_type == 'letter':
+            self.new_name = self.new_name_letter
+        else:
+            raise ValueError
         self.counter = 0
 
-    def new_name(self):
+    def new_name_letter(self):
         self.counter += 1
         return chr(ord('A')+self.counter-1)
+
+    def new_name_number(self):
+        self.counter += 1
+        return str(self.counter)
 
     def generate(self, length):
         names = []
