@@ -42,6 +42,13 @@ class Graph:
             self.edges[vertex_2].add(vertex_1)
             self.vertices[vertex_2].neighbors.add(self.vertices[vertex_1])
 
+    def remove_edge(self, vertex_1, vertex_2):
+        self.edges[vertex_1].remove(vertex_2)
+        self.vertices[vertex_1].neighbors.remove(self.vertices[vertex_2])
+        if self.is_undirected:
+            self.edges[vertex_2].remove(vertex_1)
+            self.vertices[vertex_2].neighbors.remove(self.vertices[vertex_1])
+
     def set_edges_by_distance(self, distance):
         for key in self.edges:
             self.edges[key] = set()
@@ -76,4 +83,3 @@ class Graph:
     def show(self):
         plot.show()
 
-    # TODO: Implement 'check_connectivity()' to connect nodes based on Euclidean distance

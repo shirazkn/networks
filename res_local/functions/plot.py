@@ -33,14 +33,14 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
 
     if config.MARKER_TYPE == 'drone':
         kwargs["with_labels"] = False
-        kwargs["node_size"] = 450
+        kwargs["node_size"] = 300
         kwargs["node_color"] = '#ffffff'
-        kwargs["width"] = 1.2
+        kwargs["width"] = 0.9
         kwargs["style"] = 'dashed'
         kwargs["node_shape"] = 's'
-        kwargs["edge_color"] = '#1f78b4'
+        kwargs["edge_color"] = '#2f89c5'
 
-    if config.MARKER_TYPE == 'ieee_labeled_graph':
+    elif config.MARKER_TYPE == 'ieee_labeled_graph':
         kwargs["node_size"] = 300
         kwargs["node_color"] = kwargs.get("node_color", '#000000')
         kwargs["edge_color"] = "tab:gray"
@@ -66,7 +66,7 @@ def draw_graph(graph, axis, title, plot_estimates=False, **kwargs):
         axis = fig.gca()
 
     if config.MARKER_TYPE == 'drone':
-        imgbox = get_image_box("media/drone.png", zoom=0.13)
+        imgbox = get_image_box("media/drone.png", zoom=0.12)
         for v in graph.vertices.values():
             plot_img((v._pos[0][0], v._pos[1][0]), imgbox, axis, zorder=30)
 

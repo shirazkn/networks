@@ -1,6 +1,8 @@
 """
 Note: The optimization approach is too slow, I just use a constant bias injection attack instead
 see Attacker.design_greedy_attack
+
+Although in most tests I just use pre-specified bias vectors because both optimization approaches take too long on my laptop
 """
 
 import types

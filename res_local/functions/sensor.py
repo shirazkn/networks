@@ -50,6 +50,16 @@ class PhysicalSystem:
         """
         Uses values which were set during the previous logic update
         """
+        if config.LIMIT_VEL_ACC:
+            speed = np.linalg.norm(self._vel)
+            acc = np.linalg.norm(self._acc)
+            SPEED_LIMIT = 1.5
+            ACC_LIMIT = 0.25
+            if speed > SPEED_LIMIT:
+                self._vel = SPEED_LIMIT*self._vel/speed
+            if acc > ACC_LIMIT:
+                self._acc = ACC_LIMIT*self._acc/acc
+
         for _ in range(int(self._simulation_clock.get_time_and_reset() / config.ODE_TIMESTEP)):
             self._pos += self._vel*config.ODE_TIMESTEP
             self._vel += self._acc*config.ODE_TIMESTEP

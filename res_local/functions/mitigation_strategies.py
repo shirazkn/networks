@@ -16,7 +16,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
     def __init__(self, *args, if_mitigation=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.clock_2 = misc.Timer()
-        self.range_cov = [[0.000001]]
+        self.range_cov = [[0.1]]  # Revert to range cov = 1e-6, k = 0.1
         self.range_timer = misc.Timer(duration=config.GPS_TIMEOUT, randomize=True)
         self.if_mitigation = if_mitigation
         self.gps_residual = 0.0
@@ -48,7 +48,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
             noise_covs.append(self.gps_cov)
             self.gps_residual = get_residual_power(gps_measurement,
                                                    misc.column([self.ekf.x[0][0], self.ekf.x[1][0]]),
-                                                   self.ekf.P[0][0] + self.ekf.P[1][1])
+                                                   self.ekf.P[0][0])
 
         if self.ins_timer.get_status_and_reset():
             C_matrix.append(sensor.Drone2D.C_MATRIX_INS.tolist())
@@ -57,7 +57,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
             noise_covs.append(self.ins_cov)
             self.ins_residual = get_residual_power(ins_measurement,
                                                    misc.column([self.ekf.x[0][0], self.ekf.x[1][0]]),
-                                                   self.ekf.P[2][2] + self.ekf.P[3][3])
+                                                   self.ekf.P[2][2])
 
         if measurements:
             self.ekf.update(C_matrix=np.concatenate(C_matrix),
@@ -69,7 +69,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
             self_ekf_pos = misc.column([self.ekf.x[0][0], self.ekf.x[1][0]])
             self_ref_point = misc.column([self.ref_point[0][0], self.ref_point[1][0]])
 
-            k = 0.1
+            k = 0.04
             force = misc.column([0.0, 0.0])
             self.range_residuals = []
             for i in range(len(range_measurements)):

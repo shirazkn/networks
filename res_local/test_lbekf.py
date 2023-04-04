@@ -69,8 +69,8 @@ def test_l_band_inversion(size=500, bandwidths=None):
             frob_norms.append((frob_norm(l_band_inversion(M, l) - M_inv))/M_inv_F)
         plt.plot(approx_bandwidths, frob_norms, marker=markerstyles[style], markersize=2.5, label=bandwidth)
         style += 1
-    plt.ylabel(r"Approximation Error $\Big(\big{\|} A^{-1} - \breve A^{-1}\big{\|}_{\small F}\big/\|A^{-1}\|_F\Big)$")
-    plt.xlabel(r"Bandwidth of $\breve A^{-1}$")
+    plt.ylabel(r"Approximation Error $\Big(\big{\|} A^{-1} - \breve A^{-1}\big{\|}_{\small F}\Big)$")
+    plt.xlabel(r"Bandwidth of $\breve A^{-1}$ $(L)$")
     plt.xlim([0, 50])
     plt.ylim([0, 80])
     plt.legend(title=r"Bandwidth of $A$")
@@ -236,11 +236,11 @@ def plot_covariance_ellipse(pos, cov, level, alternate_style=0, num_cells=40):
         y[index] += pos[1][0]
 
     if alternate_style:
-        cf =plt.contourf(x, y, z, levels=[0, level], alpha=0.25, cmap='GnBu')
-        plt.contour(x, y, z, levels=[0, level], alpha=0.8, cmap='GnBu', linewidths=0.6, linestyles='dashed')
+        cf =plt.contourf(x, y, z, levels=[0, level], alpha=0.5, cmap='GnBu')
+        plt.contour(x, y, z, levels=[0, level], alpha=1.0, cmap='GnBu', linewidths=0.6, linestyles='dashed')
     else:
-        cf = plt.contourf(x, y, z, levels=[0, level], alpha=0.25, cmap='YlOrRd')
-        plt.contour(x, y, z, levels=[0, level], alpha=0.8, cmap='YlOrRd', linewidths=0.6, linestyles='dotted')
+        cf = plt.contourf(x, y, z, levels=[0, level], alpha=0.5, cmap='YlOrRd')
+        plt.contour(x, y, z, levels=[0, level], alpha=1.0, cmap='YlOrRd', linewidths=0.6, linestyles='dotted')
 
     return cf
 
