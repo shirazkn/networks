@@ -7,15 +7,16 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, mitigation_strategies, attacker, misc, graph, config, plot
+from config import constants
+from functions import worldtime, mitigation_strategies, attacker, misc, graph, plot
 import numpy.linalg as la
 
 ATTACK_START_TIME = 100
 TIMESTEPS = 600
 
-config.PLOT_LIM = 2.3
-config.OFFSET = [1.2, 0.9]
-config.MARKER_TYPE = 'drone'
+constants.PLOT_LIM = 2.3
+constants.OFFSET = [1.2, 0.9]
+constants.MARKER_TYPE = 'drone'
 
 CONSTANT_ATTACK = True  # Uses simple constant bias attack instead of optimized (worst-case) attack
 # If false, uses cvxpy to optimize attack that minimizes the range-residuals

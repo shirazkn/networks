@@ -7,12 +7,13 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config, plot
+from config import constants
+from functions import worldtime, sensor, misc, graph, plot
 
 
-config.PLOT_LIM = 2.5
-config.OFFSET = [1.2, 0.7]
-config.MARKER_TYPE = "drone"
+constants.PLOT_LIM = 2.5
+constants.OFFSET = [1.2, 0.7]
+constants.MARKER_TYPE = "drone"
 
 
 if __name__ == "__main__":

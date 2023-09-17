@@ -12,11 +12,12 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config, mitigation_strategies, plot
+from config import constants
+from functions import worldtime, sensor, misc, graph, mitigation_strategies, plot
 from test_lbekf import LBEKF
 import subprocess, sys
 
-config.LIMIT_VEL_ACC = True
+constants.LIMIT_VEL_ACC = True
 
 ANIMATE_ATTACK_SCENARIO = True
 
@@ -34,11 +35,11 @@ bias_start_timestamp = 5.0
 TIMESTEPS = 600
 RESIDUAL_PLOT_XLIM = 700
 BIAS_START_TIME = 200
-config.PLOT_LIM = 25.8
-config.OFFSET = [13.4, 6.9]
-config.MARKER_TYPE = 'drone'
-config.GPS_TIMEOUT = 1/10.0
-config.INS_TIMEOUT = 1/20.0
+constants.PLOT_LIM = 25.8
+constants.OFFSET = [13.4, 6.9]
+constants.MARKER_TYPE = 'drone'
+constants.GPS_TIMEOUT = 1/10.0
+constants.INS_TIMEOUT = 1/20.0
 
 DETECTION_THRESHOLD_OFFBOARD = 5.0
 DETECTION_THRESHOLD_ONBOARD = 2.5
@@ -85,12 +86,12 @@ def animate_attack_scenario():
 
     # --------------------------------------------- Main Loop -------------------------------------------------------- #
     def get_fake_gps(obj: sensor.Drone2D):
-        return obj.ekf.x[0:2] + misc.white_noise(obj.gps_cov) + BIAS_VECTORS[obj.name]
+        return obj.ekf.x[0:2] + misc.random_gaussian(obj.gps_cov) + BIAS_VECTORS[obj.name]
 
     def plot_red(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.35:
             plot.plot_point(misc.tuple_from_col_vec(
-                self._pos + misc.column(config.GPS_SYMBOL_OFFSET)
+                self._pos + misc.column(constants.GPS_SYMBOL_OFFSET)
             ), color=(0.95, 0.1, 0.2), s=5, edgecolor=(0.85, 0.05, 0.15))
 
         imgbox = plot.get_image_box("media/lightning.png", zoom=0.255)
@@ -126,7 +127,7 @@ def animate_attack_scenario():
             wind = np.sin(2*np.pi*timestep/TIMESTEPS)*WIND_DIRECTION
             for vertex in G.vertices:
                 # Add disturbances
-                G.vertices[vertex]._vel += wind + misc.white_noise(cov=[[WIND_NOISE]])
+                G.vertices[vertex]._vel += wind + misc.random_gaussian(cov=[[WIND_NOISE]])
                 G.vertices[vertex].update_logic()
 
         plot_1.cla()
@@ -155,7 +156,7 @@ if __name__ == "__main__":
 
     G.set_edges_by_distance(distance=15.0)
     ekf = LBEKF(network=G, estimate=np.concatenate([misc.column(G.vertices[vtx]._pos)
-                                                    + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                    + misc.random_gaussian(cov=np.identity(2) * INIT_VAR)
                                                     for vtx in G.order]),
                 beacon_agents=name_list,
                 estimate_cov=np.identity(2)*INIT_VAR, process_cov=1.0*PROCESS_VAR*np.identity(2), gps_std_dev=EKF_GPS_STD_DEV,
@@ -163,7 +164,7 @@ if __name__ == "__main__":
                 bandwidth=None)
 
     ekf_without_range = LBEKF(network=G, estimate=np.concatenate([misc.column(G.vertices[vtx]._pos)
-                                                    + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                    + misc.random_gaussian(cov=np.identity(2) * INIT_VAR)
                                                     for vtx in G.order]),
                 beacon_agents=name_list,
                 estimate_cov=np.identity(2)*INIT_VAR, process_cov=1.0*PROCESS_VAR*np.identity(2), gps_std_dev=EKF_GPS_STD_DEV,
@@ -172,7 +173,7 @@ if __name__ == "__main__":
 
     # --------------------------------------------- Main Loop -------------------------------------------------------- #
     def get_fake_gps(obj: sensor.Drone2D):
-        return obj.ekf.x[0:2] + misc.white_noise(obj.gps_cov) + BIAS_VECTORS[obj.name]
+        return obj.ekf.x[0:2] + misc.random_gaussian(obj.gps_cov) + BIAS_VECTORS[obj.name]
 
     def get_fake_gps_centralized(self, network):
         measurements = np.zeros([self.dim*len(self.beacon_agents) + len(self.edge_list_indices), 1])
@@ -180,15 +181,15 @@ if __name__ == "__main__":
         for name in self.beacon_agents:
             if name in BIAS_VECTORS:
                 measurements[_i:_i + self.dim] += (self.get_subvector(network.index(name)) + BIAS_VECTORS[name]
-                                                   + misc.white_noise(cov=np.identity(2)*self.gps_std_dev**2))
+                                                   + misc.random_gaussian(cov=np.identity(2)*self.gps_std_dev**2))
             else:
                 measurements[_i:_i + self.dim] = (network.vertices[name]._pos
-                                                  + misc.white_noise(cov=np.identity(2)*self.gps_std_dev**2))
+                                                  + misc.random_gaussian(cov=np.identity(2)*self.gps_std_dev**2))
             _i = _i + 2
 
         for e, e_ind in zip(self.edge_list, self.edge_list_indices):
             measurements[_i][0] = (np.linalg.norm(network.vertices[e[0]]._pos - network.vertices[e[1]]._pos)
-                                   + misc.white_noise(cov=[[self.range_std_dev**2]]))
+                                   + misc.random_gaussian(cov=[[self.range_std_dev**2]]))
             _i = _i + 1
 
         return measurements
@@ -196,7 +197,7 @@ if __name__ == "__main__":
     def plot_red(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.35:
             plot.plot_point(misc.tuple_from_col_vec(
-                self._pos + misc.column(config.GPS_SYMBOL_OFFSET)
+                self._pos + misc.column(constants.GPS_SYMBOL_OFFSET)
             ), color=(0.95, 0.1, 0.2), s=5, edgecolor=(0.85, 0.05, 0.15))
 
         imgbox = plot.get_image_box("media/lightning.png", zoom=0.255)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
             wind = np.sin(2*np.pi*timestep/TIMESTEPS)*WIND_DIRECTION
             for vertex in G.vertices.values():
                 # Add disturbances
-                vertex._vel += wind + misc.white_noise(cov=[[WIND_NOISE]])
+                vertex._vel += wind + misc.random_gaussian(cov=[[WIND_NOISE]])
                 vertex.update_logic()
                 onboard_residuals[vertex.name].append(float(vertex.gps_residual)*2.0)
             onboard_timestamps.append(time())

@@ -2,15 +2,16 @@
 Wed, Mar 23: Example of how a graph vertex can represent a sensor object
 Uses a graph with a single vertex, where the vertex represents a mobile sensor
 """
+from config import constants
 from functions import graph, sensor, misc
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from tqdm import tqdm
 
-from functions import worldtime, config
+from functions import worldtime
 import subprocess
 
-config.PLOT_TRAJECTORIES = True
+constants.PLOT_TRAJECTORIES = True
 
 
 if __name__ == "__main__":

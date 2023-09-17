@@ -10,7 +10,8 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config, attacker
+from config import constants
+from functions import worldtime, sensor, misc, graph, attacker
 
 time = worldtime.time
 
@@ -22,9 +23,9 @@ EXTRA_EDGES = False
 DETECTION_THRESHOLD = 0.08
 YLIM = 0.14
 
-config.PLOT_LIM = 2.3
-config.OFFSET = [1.2, 0.9]
-config.MARKER_TYPE = 'drone'
+constants.PLOT_LIM = 2.3
+constants.OFFSET = [1.2, 0.9]
+constants.MARKER_TYPE = 'drone'
 
 
 class CLBIF:
@@ -89,7 +90,7 @@ class CLBIF:
             agent = network.vertices[name]
             self.vel[_i:_i + self.dim] = agent._vel
             innovations[_i:_i + self.dim] = (agent._pos
-                                             + misc.white_noise(cov=np.identity(2)*self.gps_std_dev**2)
+                                             + misc.random_gaussian(cov=np.identity(2)*self.gps_std_dev**2)
                                              - self.get_subvector(int(_i/2)))
             if self.bias and name in BIAS_VECTORS:
                 innovations[_i:_i + self.dim] += (-1)*agent._pos + self.get_subvector(int(_i/2)) \
@@ -98,7 +99,7 @@ class CLBIF:
 
         for e, e_ind in zip(self.edge_list, self.edge_list_indices):
             innovations[_i][0] = (np.linalg.norm(network.vertices[e[0]]._pos - network.vertices[e[1]]._pos)
-                               + misc.white_noise(cov=[[self.range_std_dev**2]])
+                               + misc.random_gaussian(cov=[[self.range_std_dev**2]])
                                - np.linalg.norm(self.get_subvector(e_ind[0]) - self.get_subvector(e_ind[1])))
             _i = _i + 1
 
@@ -137,15 +138,15 @@ if __name__ == "__main__":
         G.add_edge('J', 'M')
 
     def get_fake_gps(obj: sensor.Drone2D):
-        return obj.ekf.x[0:2] + misc.white_noise(obj.gps_cov) + BIAS_VECTORS[obj.name]
+        return obj.ekf.x[0:2] + misc.random_gaussian(obj.gps_cov) + BIAS_VECTORS[obj.name]
 
     plot_1 = G.draw()
 
-    gcs = CLBIF(15, network=G, estimate=np.concatenate([misc.column(vec) + misc.white_noise(cov=np.identity(2) * 0.001)
+    gcs = CLBIF(15, network=G, estimate=np.concatenate([misc.column(vec) + misc.random_gaussian(cov=np.identity(2) * 0.001)
                                                         for vec in positions]),
                 estimate_cov=np.identity(2)*0.01, process_cov=np.identity(2), gps_std_dev=0.01, range_std_dev=0.0005)
 
-    gcs_no_range = CLBIF(15, network=G, estimate=np.concatenate([misc.column(vec) + misc.white_noise(cov=np.identity(2)*0.001)
+    gcs_no_range = CLBIF(15, network=G, estimate=np.concatenate([misc.column(vec) + misc.random_gaussian(cov=np.identity(2)*0.001)
                                                         for vec in positions]),
                 estimate_cov=np.identity(2)*0.01, process_cov=np.identity(2), gps_std_dev=10.0, range_std_dev=1000.0)
 

@@ -1,4 +1,5 @@
-from functions import sensor, misc, plot, config
+from config import constants
+from functions import sensor, misc, plot
 import numpy as np
 import numpy.linalg as la
 from scipy.linalg import block_diag
@@ -17,7 +18,7 @@ class DroneWithRangeMitigation(sensor.Drone2D):
         super().__init__(*args, **kwargs)
         self.clock_2 = misc.Timer()
         self.range_cov = [[0.1]]  # Revert to range cov = 1e-6, k = 0.1
-        self.range_timer = misc.Timer(duration=config.GPS_TIMEOUT, randomize=True)
+        self.range_timer = misc.Timer(duration=constants.GPS_TIMEOUT, randomize=True)
         self.if_mitigation = if_mitigation
         self.gps_residual = 0.0
         self.ins_residual = 0.0
@@ -27,13 +28,13 @@ class DroneWithRangeMitigation(sensor.Drone2D):
         range_measurements = []
         for neighbor in self.neighbors:
             range_measurements.append([misc.column([neighbor.ekf.x[0][0], neighbor.ekf.x[1][0]]),
-                                       la.norm(neighbor._pos - self._pos) + misc.white_noise(self.range_cov)])
+                                       la.norm(neighbor._pos - self._pos) + misc.random_gaussian(self.range_cov)])
         return range_measurements
 
     def plot(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.35:
             plot.plot_point(misc.tuple_from_col_vec(
-                self._pos + misc.column(config.GPS_SYMBOL_OFFSET)
+                self._pos + misc.column(constants.GPS_SYMBOL_OFFSET)
             ), color=(0.05, 0.75, 0.2), s=5, edgecolor=(0.05, 0.85, 0.15))
 
     def measure(self):

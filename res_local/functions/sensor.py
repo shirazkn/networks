@@ -1,6 +1,7 @@
 import scipy.linalg
 from scipy.signal import place_poles
-from functions import misc, plot, config
+from config import constants
+from functions import misc, plot
 
 import numpy as np
 from scipy import linalg
@@ -17,7 +18,7 @@ time = functions.worldtime.time
 class ExtendedKalmanFilter:
     def __init__(self, init_est, init_cov):
         self.x = init_est
-        self.dim = len(init_est)
+        self.dim = len(init_est)  # Note: This number is either 4 or 6
         self.P = init_cov
 
     def update(self, C_matrix, measurement, measurement_noise):
@@ -34,7 +35,7 @@ class PhysicalSystem:
     def __init__(self, position=None, name=None):
         self.name = name
         self._pos = misc.column(position)
-        self.dimensions = len(position) if position else None
+        self.dimensions = len(position) if position else None  # Either 2 or 3
         if self.dimensions:
             self._vel = misc.column([0.0 for _ in range(self.dimensions)])
             self._acc = misc.column([0.0 for _ in range(self.dimensions)])
@@ -43,26 +44,24 @@ class PhysicalSystem:
         self._pos_list = []
 
     def plot(self, **kwargs):
-        if config.PLOT_TRAJECTORIES:
+        if constants.PLOT_TRAJECTORIES:
             plot.plot_line(self._pos_list, 'r-')
 
     def update_physics(self):
         """
         Uses values which were set during the previous logic update
         """
-        if config.LIMIT_VEL_ACC:
+        if constants.LIMIT_VEL_ACC:
             speed = np.linalg.norm(self._vel)
             acc = np.linalg.norm(self._acc)
-            SPEED_LIMIT = 1.5
-            ACC_LIMIT = 0.25
-            if speed > SPEED_LIMIT:
-                self._vel = SPEED_LIMIT*self._vel/speed
-            if acc > ACC_LIMIT:
-                self._acc = ACC_LIMIT*self._acc/acc
+            if speed > constants.SPEED_LIMIT:
+                self._vel = constants.SPEED_LIMIT*self._vel/speed
+            if acc > constants.ACC_LIMIT:
+                self._acc = constants.ACC_LIMIT*self._acc/acc
 
-        for _ in range(int(self._simulation_clock.get_time_and_reset() / config.ODE_TIMESTEP)):
-            self._pos += self._vel*config.ODE_TIMESTEP
-            self._vel += self._acc*config.ODE_TIMESTEP
+        for _ in range(int(self._simulation_clock.get_time_and_reset() / constants.ODE_TIMESTEP)):
+            self._pos += self._vel*constants.ODE_TIMESTEP
+            self._vel += self._acc*constants.ODE_TIMESTEP
             self._pos_list.append(self._pos.tolist())
 
     def update_logic(self):
@@ -74,49 +73,61 @@ class Drone2D(PhysicalSystem):
     Wireless sensor that moves around and uses an EKF for closed-loop tracking
     """
     # State vector = [pos_x, pos_y, vel_x, vel_y]
-    A_MATRIX = np.block([[np.zeros([2, 2]), np.identity(2)],
-                         [np.zeros([2, 2]), np.zeros([2, 2])]])
-    B_MATRIX = np.block([[np.zeros([2, 2])],
-                         [np.identity(2)]])
-    C_MATRIX_GPS = np.identity(4)[0:2][:]
-    C_MATRIX_INS = np.identity(4)[2:4][:]
+    A_MATRIX = None
+    B_MATRIX = None
+    C_MATRIX_GPS = None
+    C_MATRIX_INS = None
 
-    def __init__(self, ins_var=0.0001, gps_var=0.001, trajectory=None, perfect_init_conditions=True,
-                 process_noise=[0.01, 0.01, 0.01, 0.01], poles=[-2, -4, -2, -3], init_cov=[1.0, 1.0, 1.0, 1.0],
+    def __init__(self, ins_var=0.00001, gps_var=0.0001, trajectory=None, perfect_init_conditions=True,
+                 process_noise=None, poles=None, init_cov=None,
                  **kwargs):
         super().__init__(**kwargs)
-        self.ekf = ExtendedKalmanFilter(init_est=np.zeros([4, 1]),
+        if init_cov is None:
+            init_cov = [0.01 for _ in range(2*self.dimensions)]
+        if process_noise is None:
+            process_noise = [0.001 for _ in range(2*self.dimensions)]
+        if poles is None:
+            poles = [-2, -4, -2, -3] if self.dimensions==2 else [-1.5, -1.4+1j, -1.4-1j, -2.45+2j, -2.45-2j, -2.2]
+
+        Drone2D.A_MATRIX = np.block([[np.zeros([self.dimensions, self.dimensions]), np.identity(self.dimensions)],
+                         [np.zeros([self.dimensions, self.dimensions]), np.zeros([self.dimensions, self.dimensions])]])
+        Drone2D.B_MATRIX = np.block([[np.zeros([self.dimensions, self.dimensions])],
+                         [np.identity(self.dimensions)]])
+        Drone2D.C_MATRIX_GPS = np.identity(2*self.dimensions)[0:self.dimensions][:]
+        Drone2D.C_MATRIX_INS = np.identity(2*self.dimensions)[self.dimensions:2*self.dimensions][:]
+
+        self.ekf = ExtendedKalmanFilter(init_est=np.zeros([2*self.dimensions, 1]),
                                         init_cov=np.diag(init_cov))
 
         self.process_noise_cov = np.diag(process_noise)
 
-        self.ins_cov = np.diag([ins_var for _ in range(2)])
-        self.ins_timer = misc.Timer(duration=config.INS_TIMEOUT, randomize=True)
+        self.ins_cov = np.diag([ins_var for _ in range(self.dimensions)])
+        self.ins_timer = misc.Timer(duration=constants.INS_TIMEOUT, randomize=True)
 
-        self.gps_cov = np.diag([gps_var for _ in range(2)])
-        self.gps_timer = misc.Timer(duration=config.GPS_TIMEOUT, randomize=True)
+        self.gps_cov = np.diag([gps_var for _ in range(self.dimensions)])
+        self.gps_timer = misc.Timer(duration=constants.GPS_TIMEOUT, randomize=True)
 
         self.ref_trajectory = trajectory if trajectory else misc.fixed_point_trajectory(self._pos.T[0])
         self.ref_point = misc.column(self.ref_trajectory(time()))
         self.clock = misc.Timer()
 
         if perfect_init_conditions:
-            self._pos = self.ref_point[0:2]
-            self._vel = self.ref_point[2:4]
-            self.ekf.x = self.ref_point
+            self._pos = misc.deepcopy(self.ref_point[0:self.dimensions])
+            self._vel = misc.deepcopy(self.ref_point[self.dimensions:2*self.dimensions])
+            self.ekf.x = misc.deepcopy(self.ref_point)
         else:
-            self._pos = self.ref_point[0:2]
-            self._vel = self.ref_point[2:4]
-            self.ekf.x = self.ref_point + 0.1*Drone2D.C_MATRIX_GPS.T @ misc.white_noise(self.gps_cov)
+            self._pos = misc.deepcopy(self.ref_point[0:self.dimensions])
+            self._vel = misc.deepcopy(self.ref_point[self.dimensions:2*self.dimensions])
+            self.ekf.x = self.ref_point + 0.1*Drone2D.C_MATRIX_GPS.T @ misc.random_gaussian(self.gps_cov)
 
         # Pole placement of (A + BK)
         self.K = -1.0*place_poles(Drone2D.A_MATRIX, Drone2D.B_MATRIX, poles).gain_matrix
 
     def get_ins_measurement(self):
-        return self._vel + misc.white_noise(self.ins_cov)
+        return self._vel + misc.random_gaussian(self.ins_cov)
 
     def get_gps_measurement(self):
-        return self._pos + misc.white_noise(self.gps_cov)
+        return self._pos + misc.random_gaussian(self.gps_cov)
 
     def measure(self):
         C_matrix = []
@@ -152,7 +163,7 @@ class Drone2D(PhysicalSystem):
         self._acc = self.K @ error
 
         dt = self.clock.get_time_and_reset()
-        self.ekf.propagate(linear_model=np.identity(4) + Drone2D.A_MATRIX*dt,
+        self.ekf.propagate(linear_model=np.identity(2*self.dimensions) + Drone2D.A_MATRIX*dt,
                            process_noise_cov=self.process_noise_cov,
                            input=dt*Drone2D.B_MATRIX@self._acc)
 

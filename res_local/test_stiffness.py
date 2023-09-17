@@ -6,12 +6,13 @@ import pdb
 from copy import deepcopy
 import networkx as nx
 import numpy as np
-from functions import worldtime, sensor, misc, graph, config, plot
+from config import constants
+from functions import worldtime, sensor, misc, graph, plot
 import scipy as sp
 
-config.PLOT_LIM = 0.2
-config.OFFSET = [0.15, 0.13]
-config.MARKER_TYPE = "drone"
+constants.PLOT_LIM = 0.2
+constants.OFFSET = [0.15, 0.13]
+constants.MARKER_TYPE = "drone"
 
 
 def get_rigidity_matrix(G):

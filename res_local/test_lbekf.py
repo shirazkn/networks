@@ -13,7 +13,8 @@ from matplotlib import cm
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config
+from config import constants
+from functions import worldtime, sensor, misc, graph
 import time
 
 plt.rcParams["text.latex.preamble"] = r"\usepackage{amsfonts}"
@@ -210,12 +211,12 @@ class LBEKF:
         _i = 0
         for name in self.beacon_agents:
             measurements[_i:_i + self.dim] = (network.vertices[name]._pos
-                                              + misc.white_noise(cov=np.identity(2)*self.gps_std_dev**2))
+                                              + misc.random_gaussian(cov=np.identity(2)*self.gps_std_dev**2))
             _i = _i + 2
 
         for e, e_ind in zip(self.edge_list, self.edge_list_indices):
             measurements[_i][0] = (np.linalg.norm(network.vertices[e[0]]._pos - network.vertices[e[1]]._pos)
-                                   + misc.white_noise(cov=[[self.range_std_dev**2]]))
+                                   + misc.random_gaussian(cov=[[self.range_std_dev**2]]))
             _i = _i + 1
 
         return measurements
@@ -273,7 +274,7 @@ def compare_with_ekf(bandwidth, monte_carlo=False):
     beacons_agents = ['1', '2', '3', '4', '27', '28', '29', '30']
     # beacons_agents = [str(num+1) for num in range(10)]
     ekf = LBEKF(network=G, estimate=np.concatenate([misc.column(G.vertices[vtx]._pos)
-                                                    + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                    + misc.random_gaussian(cov=np.identity(2) * INIT_VAR)
                                                     for vtx in G.order]),
                 beacon_agents=beacons_agents,
                 estimate_cov=np.identity(2)*INIT_VAR, process_cov=1.0*PROCESS_VAR*np.identity(2), gps_std_dev=GPS_STD_DEV,
@@ -314,7 +315,7 @@ def compare_with_ekf(bandwidth, monte_carlo=False):
                 lbekf_residuals[vertex].append(np.linalg.norm(G.vertices[vertex]._pos - lbekf.get_subvector(_index)))
             worldtime.step()
             for vertex in G.vertices.values():
-                vertex._pos += misc.white_noise(PROCESS_VAR*np.identity(2))
+                vertex._pos += misc.random_gaussian(PROCESS_VAR*np.identity(2))
 
             for vertex in G.vertices.values():
                 vertex.update_logic()
@@ -375,7 +376,7 @@ def compare_with_ekf(bandwidth, monte_carlo=False):
         lbekf_shuffled.beacon_agents = [new_labels[label] for label in ekf.beacon_agents]
         lbekf_shuffled.beacon_agent_indices = [G_shuffled.index(label) for label in lbekf_shuffled.beacon_agents]
         lbekf_shuffled.pos = np.concatenate([misc.column(G_shuffled.vertices[vtx]._pos)
-                                                  + misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                                                  + misc.random_gaussian(cov=np.identity(2) * INIT_VAR)
                                                   for vtx in G_shuffled.order])
 
         PLOT_DICT = {v: np.zeros([TIMESTEPS, 1]) for v in G.vertices}
@@ -395,7 +396,7 @@ def compare_with_ekf(bandwidth, monte_carlo=False):
                 lbekf_shuffled_residuals[new_vertex][i] += squared_norm(G_shuffled.vertices[new_vertex]._pos -
                                                                         lbekf_shuffled.get_subvector(G_shuffled.index(new_vertex)))
             for vertex in G.vertices:
-                G.vertices[vertex]._pos += misc.white_noise(PROCESS_VAR*np.identity(2))
+                G.vertices[vertex]._pos += misc.random_gaussian(PROCESS_VAR*np.identity(2))
                 G_shuffled.vertices[new_labels[vertex]]._pos = G.vertices[vertex]._pos
 
             G.set_edges_by_distance(distance=15.0)
@@ -422,7 +423,7 @@ def compare_with_ekf(bandwidth, monte_carlo=False):
 
             # Reset the estimators
             for v in G.order:
-                noise_dict[v] = misc.white_noise(cov=np.identity(2) * INIT_VAR)
+                noise_dict[v] = misc.random_gaussian(cov=np.identity(2) * INIT_VAR)
             ekf.re_initialize(np.concatenate([misc.column(G.vertices[vtx]._pos) + noise_dict[vtx] for vtx in G.order]))
             lbekf.re_initialize(ekf.pos)
             lbekf_shuffled.re_initialize(np.concatenate([misc.column(G_shuffled.vertices[vtx]._pos)

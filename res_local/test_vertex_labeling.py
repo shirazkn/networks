@@ -3,7 +3,8 @@ Sun Sep 25: Plots geometric graphs with the vertices labeled neatly, for publica
 """
 
 import numpy as np
-from functions import graph, sensor, misc, config
+from config import constants
+from functions import graph, sensor, misc
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -16,7 +17,7 @@ for x in mesh_x:
         mesh_points.append((x, y))
 
 
-config.MARKER_TYPE = 'ieee_labeled_graph'
+constants.MARKER_TYPE = 'ieee_labeled_graph'
 FIGSIZE = [3.5, 2.5]
 graphs = {
     "circle": {

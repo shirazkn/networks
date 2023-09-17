@@ -8,12 +8,13 @@ from matplotlib import animation
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from copy import deepcopy
-from functions import worldtime, sensor, misc, graph, config, plot
+from config import constants
+from functions import worldtime, sensor, misc, graph, plot
 
 from numpy.linalg import norm
 
-config.PLOT_LIM = 2.5
-config.OFFSET = [1.2, 0.7]
+constants.PLOT_LIM = 2.5
+constants.OFFSET = [1.2, 0.7]
 
 
 class Drone2D(sensor.Drone2D):
@@ -32,7 +33,7 @@ class Drone2DSpecial(Drone2D):
         super().__init__(*args, **kwargs)
 
     def get_gps_measurement(self):
-        return self._pos + misc.white_noise(self.gps_cov) + misc.column((0.2, -0.35))  #<-Attacker injects bias into GPS
+        return self._pos + misc.random_gaussian(self.gps_cov) + misc.column((0.2, -0.35))  #<-Attacker injects bias into GPS
 
     def plot(self, **kwargs):
         if self.gps_timer.get_elapsed_time() < 0.1:
