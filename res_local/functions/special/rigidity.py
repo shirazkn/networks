@@ -120,16 +120,16 @@ def draw_shifted_graph(G1, G2):
     raise NotImplementedError  # commented code is from the centralized version...
 
 def draw_shifted_graph_ADMM(true_graph, estimates_init, estimates):
-    axis = true_graph.draw(node_color="black", node_size=10, zorder=1)
-    estimates_init.draw(axis=axis, node_size=55, node_color="orange", 
-                    node_alpha=0.9, zorder=0.5, label_nodes=False)
+    axis = true_graph.draw(node_color="black", node_size=8, zorder=1)
+    estimates_init.draw(axis=axis, node_size=40, node_color="orange", 
+                    node_alpha=0.8, zorder=0.5, label_nodes=False)
     
     plot.plt.tight_layout()
-    axis.set_xlim([0.0001, 6.999])
-    axis.set_ylim([0.0001, 6.999])
-    axis.set_zlim([0.0001, 6.999])
-    axis.text(*(-0.46, -0.45, -0.51), '0')
-    axis.text(*(-0.51, 7.485, -0.55), '0')
+    axis.set_xlim([0.0001, 6.3])
+    axis.set_ylim([0.0001, 6.3])
+    axis.set_zlim([0.0001, 6.3])
+    axis.text(*(-0.47, -0.45, -0.53), '0')
+    axis.text(*(-0.38, 7.085, -0.52), '0')
 
     axis.azim = -108.0
     axis.elev = 15.0
@@ -154,7 +154,7 @@ def draw_shifted_graph_ADMM(true_graph, estimates_init, estimates):
                             [tail_point[1][0], head_point[1][0]], 
                             [tail_point[2][0], head_point[2][0]], 
                             mutation_scale=10, 
-                            lw=1, arrowstyle="-|>", color="r")
+                            lw=0.9, arrowstyle="-|>", color="r")
             axis.add_artist(arrow)
 
     return axis
@@ -192,7 +192,7 @@ def get_graph(positions, edges):
     
     return G
 
-def get_distance_rigidity_matrix(G, using_estimates, verbose=False):
+def get_distance_rigidity_matrix(G, using_estimates=False, verbose=False):
     nx_G = graph.nxGraph(G.edges)
     edge_list = list(nx_G.edges)
     dimensions = list(G.vertices.values())[0].dimensions

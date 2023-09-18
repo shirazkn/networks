@@ -5,7 +5,8 @@ from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
 from copy import deepcopy
 
 from matplotlib import animation
-from IPython import display
+from IPython import display  
+# Just comment this if you don't have IPython, not sure if it still works either
 from config import constants
 from functions import misc
 

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     VIEW_FIGURES = args.view
     
     PARAM_SETS = []
-    PARAM_SET_DEFAULT = {"num_faulty_drones": 4, "num_outer_iterations": 8, 
+    PARAM_SET_DEFAULT = {"num_faulty_drones": 6, "num_outer_iterations": 3, 
                          "num_inner_iterations": 10, "num_mc": None}
 
     if SIMULATION[SIMULATION_NO] == "single_run":
@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     elif SIMULATION[SIMULATION_NO] == "single_run_all_errors":
         PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
-        PARAM_SETS[-1]["num_mc"] = 5
+        PARAM_SETS[-1]["num_mc"] = 20
         
     elif SIMULATION[SIMULATION_NO] == NotImplemented:
         raise NotImplementedError
@@ -78,6 +78,8 @@ if __name__ == "__main__":
                 if not _vtx_name == _nbr_name:
                     graph.add_edge(_vtx_name, _nbr_name)
                     estimates.add_edge(_vtx_name, _nbr_name)
+    
+    rigidity.get_distance_rigidity_matrix(graph, verbose=True)
 
     for vtx in estimates.vertices.values():
         vtx.cvx = misc.Namespace(x = cp.Variable((3,1)), 
@@ -281,7 +283,7 @@ if __name__ == "__main__":
         plt.xlabel("No. of Inner Iterations")
         plt.ylabel(APPROX_ERROR_LABEL)
         plt.grid(True, linewidth=0.4, alpha=0.6)
-        plt.ylim([0, 5.0])
+        plt.ylim([0,7.0])
         plt.xlim([0, len(error_array["means"][v])-1])
 
     if SIMULATION[SIMULATION_NO] == "single_run_block_errors":
