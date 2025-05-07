@@ -71,65 +71,25 @@ class Arrow3D(FancyArrowPatch):
 
             return np.min(zs)
         
-def draw_shifted_graph(G1, G2):
-    # axis = G1.draw(node_color="black", node_size=10, zorder=1)
-    # G2_wo_edges = graph.Graph()
+def draw_shifted_graph(G1, G2, color="r", opacity = 1.0):
+    axis = G1.draw(node_color="black", node_size=10, zorder=1, 
+                   node_alpha=opacity, edge_alpha=opacity)
+    G2_wo_edges = graph.Graph()
 
-    # for name in G2.vertices:
-    #     G2_wo_edges.add_vertex(obj=sensor.Drone2D(position=deepcopy(
-    #     misc.tuple_from_col_vec(G2.vertices[name]._pos[0:3])
-    #     ), name=name))
+    for name in G2.vertices:
+        G2_wo_edges.add_vertex(obj=sensor.Drone2D(position=deepcopy(
+        misc.tuple_from_col_vec(G2.vertices[name]._pos[0:3])
+        ), name=name))
 
-    # G2_wo_edges.draw(axis=axis, node_size=55, node_color="orange", 
-    #                 node_alpha=0.9, zorder=0.5, label_nodes=False)
-    
-    # plot.plt.tight_layout()
-    # axis.set_xlim([0.0001, 6.999])
-    # axis.set_ylim([0.0001, 6.999])
-    # axis.set_zlim([0.0001, 6.999])
-    # axis.text(*(-0.46, -0.45, -0.51), '0')
-    # axis.text(*(-0.51, 7.485, -0.55), '0')
-
-    # axis.azim = -108.0
-    # axis.elev = 15.0
-
-    # axis.grid(True)
-    # for _a in [axis.xaxis, axis.yaxis, axis.zaxis]:
-    #     _a._axinfo["grid"].update({"linewidth": 0.2, "alpha": 0.8})
-
-    # label_padding = [-5, -2]
-    # axis.set_xlabel(r"$x$", labelpad=label_padding[0])
-    # axis.set_ylabel(r"$y$", labelpad=label_padding[0])
-    # axis.set_zlabel(r"$z$", labelpad=label_padding[0])
-    # axis.tick_params(axis="x", pad=label_padding[1])
-    # axis.tick_params(axis="y", pad=label_padding[1])
-    # axis.tick_params(axis="z", pad=label_padding[1])
-
-    # for name in G1.vertices:
-    #     tail_point = G2.vertices[name]._pos
-    #     head_point = G1.vertices[name].ekf.x[0:3]
-    #     if np.linalg.norm(head_point - tail_point) > 0.5:
-    #         arrow = Arrow3D([tail_point[0][0], head_point[0][0]], 
-    #                         [tail_point[1][0], head_point[1][0]], 
-    #                         [tail_point[2][0], head_point[2][0]], 
-    #                         mutation_scale=10, 
-    #                         lw=1, arrowstyle="-|>", color="r")
-    #         axis.add_artist(arrow)
-
-    # return axis
-    raise NotImplementedError  # commented code is from the centralized version...
-
-def draw_shifted_graph_ADMM(true_graph, estimates_init, estimates):
-    axis = true_graph.draw(node_color="black", node_size=8, zorder=1)
-    estimates_init.draw(axis=axis, node_size=40, node_color="orange", 
-                    node_alpha=0.8, zorder=0.5, label_nodes=False)
+    G2_wo_edges.draw(axis=axis, node_size=55, node_color="orange", 
+                    node_alpha=0.9, zorder=0.5, label_nodes=False)
     
     plot.plt.tight_layout()
-    axis.set_xlim([0.0001, 6.3])
-    axis.set_ylim([0.0001, 6.3])
-    axis.set_zlim([0.0001, 6.3])
-    axis.text(*(-0.47, -0.45, -0.53), '0')
-    axis.text(*(-0.38, 7.085, -0.52), '0')
+    axis.set_xlim([0.0001, 6.999])
+    axis.set_ylim([0.0001, 6.999])
+    axis.set_zlim([0.0001, 6.999])
+    # axis.text(*(-0.46, -0.45, -0.51), '0')
+    # axis.text(*(-0.51, 7.485, -0.55), '0')
 
     axis.azim = -108.0
     axis.elev = 15.0
@@ -138,18 +98,67 @@ def draw_shifted_graph_ADMM(true_graph, estimates_init, estimates):
     for _a in [axis.xaxis, axis.yaxis, axis.zaxis]:
         _a._axinfo["grid"].update({"linewidth": 0.2, "alpha": 0.8})
 
-    label_padding = [-5, -2]
+    # label_padding = [-5, -2]
+    # axis.set_xlabel(r"$x$", labelpad=label_padding[0])
+    # axis.set_ylabel(r"$y$", labelpad=label_padding[0])
+    # axis.set_zlabel(r"$z$", labelpad=label_padding[0])
+    # axis.tick_params(axis="x", pad=label_padding[1])
+    # axis.tick_params(axis="y", pad=label_padding[1])
+    # axis.tick_params(axis="z", pad=label_padding[1])
+    label_padding = [-15, 0]
     axis.set_xlabel(r"$x$", labelpad=label_padding[0])
     axis.set_ylabel(r"$y$", labelpad=label_padding[0])
     axis.set_zlabel(r"$z$", labelpad=label_padding[0])
-    axis.tick_params(axis="x", pad=label_padding[1])
-    axis.tick_params(axis="y", pad=label_padding[1])
-    axis.tick_params(axis="z", pad=label_padding[1])
+    axis.tick_params(axis="x", pad=label_padding[1], labelleft=False, labelright=False, labeltop= False, labelbottom=False)
+    axis.tick_params(axis="y", pad=label_padding[1], labelleft=False, labelright=False)
+    axis.tick_params(axis="z", pad=label_padding[1], labelleft=False, labelright=False)
+
+    for name in G1.vertices:
+        tail_point = G2.vertices[name]._pos
+        head_point = G1.vertices[name].ekf.x[0:3]
+        if np.linalg.norm(head_point - tail_point) > 0.25:
+            arrow = Arrow3D([tail_point[0][0], head_point[0][0]], 
+                            [tail_point[1][0], head_point[1][0]], 
+                            [tail_point[2][0], head_point[2][0]], 
+                            mutation_scale=5, 
+                            lw=0.8, arrowstyle="-|>", color=color)
+            axis.add_artist(arrow)
+
+    return axis
+    
+
+def draw_shifted_graph_ADMM(true_graph, estimates_init, estimates, size):
+    axis = true_graph.draw(node_color="black", node_size=8, zorder=1)
+    estimates_init.draw(axis=axis, node_size=40, node_color="orange", 
+                    node_alpha=0.8, zorder=0.5, label_nodes=False)
+    
+    plot.plt.tight_layout()
+    axis.set_xlim([0.0001, size])
+    axis.set_ylim([0.0001, size])
+    axis.set_zlim([0.0001, size])
+    # axis.text(*(-0.62, -0.75, -0.53), '0')
+    # axis.text(*(-0.52, size+0.7, -0.52), '0')
+
+    axis.azim = -108.0
+    axis.elev = 15.0
+
+    axis.grid(True)
+    for _a in [axis.xaxis, axis.yaxis, axis.zaxis]:
+        _a._axinfo["grid"].update({"linewidth": 0.2, "alpha": 0.8})
+
+    # label_padding = [-5, -2]
+    label_padding = [-15, 0]
+    axis.set_xlabel(r"$x$", labelpad=label_padding[0])
+    axis.set_ylabel(r"$y$", labelpad=label_padding[0])
+    axis.set_zlabel(r"$z$", labelpad=label_padding[0])
+    axis.tick_params(axis="x", pad=label_padding[1], labelleft=False, labelright=False, labeltop= False, labelbottom=False)
+    axis.tick_params(axis="y", pad=label_padding[1], labelleft=False, labelright=False)
+    axis.tick_params(axis="z", pad=label_padding[1], labelleft=False, labelright=False)
 
     for vtx_name in true_graph.vertices:
         tail_point = estimates_init.vertices[vtx_name]._pos
         head_point = estimates.vertices[vtx_name]._pos
-        if np.linalg.norm(head_point - tail_point) > 0.2:
+        if np.linalg.norm(head_point - tail_point) > 0.00001:
             arrow = Arrow3D([tail_point[0][0], head_point[0][0]], 
                             [tail_point[1][0], head_point[1][0]], 
                             [tail_point[2][0], head_point[2][0]], 

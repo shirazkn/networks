@@ -94,7 +94,12 @@ def random_vector_in_box(a):
     of side length 2a centered at the origin
     """
     vec = 2*a*np.random.default_rng().random([3,1])
-    return vec - column([a, a, a])
+    vec = vec - column([a, a, a])
+    # if (vec.T @ vec) > 0.075:
+    return vec
+    # else:
+    #     # print(vec, "is too close to the origin")
+    #     return random_vector_in_box(a)
 
 
 def random_vector_on_sphere(dimension, radius):

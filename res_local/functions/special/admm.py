@@ -79,4 +79,4 @@ def plot_std_patch(means, deviations):
     np_means = np.array(means)
     np_deviations = np.array(deviations)
     plt.fill_between(range(len(np_means)), np_means - np_deviations, np_means + np_deviations,
-                     color='slategray', alpha=0.3)
+                     color='slategray', alpha=0.3, label=r"$\pm 1$ Standard Deviation")

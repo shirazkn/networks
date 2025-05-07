@@ -43,20 +43,23 @@ if __name__ == "__main__":
     VIEW_FIGURES = args.view
     
     PARAM_SETS = []
-    PARAM_SET_DEFAULT = {"num_faulty_drones": 6, "num_outer_iterations": 3, 
+    PARAM_SET_DEFAULT = {"num_faulty_drones": 6, "num_outer_iterations": 6, 
                          "num_inner_iterations": 10, "num_mc": None}
+    rho = 1.0
 
     if SIMULATION[SIMULATION_NO] == "single_run":
         PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
         PARAM_SETS[-1]["num_mc"] = 1
+        
+
+    elif SIMULATION[SIMULATION_NO] == "single_run_all_errors":
+        PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
+        PARAM_SETS[-1]["num_mc"] = 100
 
     elif SIMULATION[SIMULATION_NO] in ["single_run_block_errors", "single_run_thresholds"]:
         PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
         PARAM_SETS[-1]["num_mc"] = 1
-
-    elif SIMULATION[SIMULATION_NO] == "single_run_all_errors":
-        PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
-        PARAM_SETS[-1]["num_mc"] = 20
+        PARAM_SETS[-1]["num_outer_iterations"] = 8
         
     elif SIMULATION[SIMULATION_NO] == NotImplemented:
         raise NotImplementedError
@@ -131,7 +134,6 @@ if __name__ == "__main__":
                 admm.reset_dual_variables(vtx)
 
             # --------------- OUTER LOOP
-            rho = 1.0    
 
             for outer_iteration in tqdm(range(params["num_outer_iterations"]), desc="Simulation No. " + str(simulation_no + 1) + "/" + str(params["num_mc"])):
                 z = [edge.get_measurement(graph) - edge.get_measurement(estimates) for edge in edges]
@@ -257,34 +259,47 @@ if __name__ == "__main__":
         FAULTY_DRONES = data["FAULTY_DRONES"]
         error_array = data["error_array"]
     
-    io.dump(data={"PARAM_SETS": PARAM_SETS, "error_array": error_array, "FAULTY_DRONES": FAULTY_DRONES}, 
-            filename=JSON_NAME + "_" + str(SIMULATION_NO))
+    # io.dump(data={"PARAM_SETS": PARAM_SETS, "error_array": error_array, "FAULTY_DRONES": FAULTY_DRONES}, 
+    #         filename=JSON_NAME + "_" + str(SIMULATION_NO))
 
     # -------------- PLOTTING
     FIG_WIDTH = 4.5
+    ASPECT = 0.25
     if SIMULATION[SIMULATION_NO] == "single_run":
-        plt.figure(figsize=(FIG_WIDTH*0.9, FIG_WIDTH*0.9))
-        rigidity.draw_shifted_graph_ADMM(graph, estimates_init, estimates)
+        plt.figure(figsize=(FIG_WIDTH*0.8, FIG_WIDTH*0.8))
+        plt.rc('font', size=20)  # Controls default text sizes
+        plt.rc('axes', labelsize=14)  # Controls x and y label font size
+        plt.rc('xtick', labelsize=10)  # Controls x-axis tick label font size
+        plt.rc('ytick', labelsize=10)  # Controls y-axis tick label font size
+        plt.rc('legend', fontsize=12)  # Controls legend font size
+        rigidity.draw_shifted_graph_ADMM(graph, estimates_init, estimates, size=7.56)
 
 
     if SIMULATION[SIMULATION_NO] == "single_run_all_errors":
 
         # All errors combined
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
         APPROX_ERROR_LABEL = r"$\| \mathbf x - \mathbf x^* \|$" 
+        YLIM = 7.0
 
         for v in ["all"]:
             if error_array["deviations"][v]:
                 # plt.errorbar(range(len(error_array["means"][v])), error_array["means"][v], yerr=error_array["deviations"][v], 
                 #             fmt='o', markersize=3, capsize=10, color="lightseagreen", label="$\pm 1$ Standard Deviation")
                 admm.plot_std_patch(error_array["means"][v], error_array["deviations"][v])
-            plt.plot(error_array["means"][v], '.-', linewidth=0.8, markersize=2.0, label="Average", color="black")
+            plt.plot(error_array["means"][v], '.-', linewidth=0.8, markersize=2.0, color="black", label="Mean")
 
-        plt.xlabel("No. of Inner Iterations")
+        for i in range(1, PARAM_SETS[-1]["num_outer_iterations"]):
+            inner_len = PARAM_SETS[-1]["num_inner_iterations"]
+            h_loc = int(inner_len*i)
+            plt.plot([h_loc, h_loc], [0, YLIM], linewidth=0.4, color='gray')
+        
+        plt.xlabel("No. of ADMM Iterations")
         plt.ylabel(APPROX_ERROR_LABEL)
         plt.grid(True, linewidth=0.4, alpha=0.6)
-        plt.ylim([0,7.0])
+        plt.ylim([0,YLIM])
         plt.xlim([0, len(error_array["means"][v])-1])
+        plt.legend(framealpha=0.95)
 
     if SIMULATION[SIMULATION_NO] == "single_run_block_errors":
         # plt.figure(figsize=(FIG_WIDTH*0.9, FIG_WIDTH*0.9))
@@ -292,7 +307,7 @@ if __name__ == "__main__":
         # plot.show()
 
         # All errors combined
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
         APPROX_ERROR_LABEL = r"$\| \mathbf x[i] - \mathbf x^*[i] \|$"
         YLIM = 0.8
         
@@ -303,12 +318,12 @@ if __name__ == "__main__":
         for i in range(1, PARAM_SETS[-1]["num_outer_iterations"]):
             inner_len = PARAM_SETS[-1]["num_inner_iterations"]
             h_loc = int(inner_len*i)
-            plt.plot([h_loc, h_loc], [0, YLIM], linewidth=0.5, color='black')
+            plt.plot([h_loc, h_loc], [0, YLIM],linewidth=0.4, color='gray')
         
         plt.plot([], linewidth=1.0, color="red", label="$i \in \mathcal D$")
         plt.plot([], linewidth=1.0, color="darkslategray", label="$i \in \mathcal D^\complement$")
 
-        plt.xlabel("No. of Inner Iterations")
+        plt.xlabel("No. of ADMM Iterations")
         plt.ylabel(APPROX_ERROR_LABEL)
         plt.grid(True, linewidth=0.4, alpha=0.6)
         plt.ylim([0, YLIM])
@@ -317,8 +332,9 @@ if __name__ == "__main__":
 
     if SIMULATION[SIMULATION_NO] == "single_run_thresholds":
         # All errors combined
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
-        YLIM = 25.0
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
+        YLIM = 75
+        # YLIM = 70.0; rho = 0.1
         
         for v in graph.vertices:
             color = "red" if v in FAULTY_DRONES else "darkslategray"
@@ -327,19 +343,19 @@ if __name__ == "__main__":
         for i in range(1, PARAM_SETS[-1]["num_outer_iterations"]):
             inner_len = PARAM_SETS[-1]["num_inner_iterations"]
             h_loc = int(inner_len*i)
-            plt.plot([h_loc, h_loc], [0, YLIM], linewidth=0.5, color='black')
+            plt.plot([h_loc, h_loc], [0, YLIM], linewidth=0.4, color='gray')
         
         plt.plot([], linewidth=1.0, color="red", label="$i \in \mathcal D$")
         plt.plot([], linewidth=1.0, color="darkslategray", label="$i \in \mathcal D^\complement$")
 
-        plt.plot([0, len(error_array["means"][v])], [1.0, 1.0], 'b--')
+        plt.plot([0, len(error_array["means"][v])], [1/rho, 1/rho], 'b--')
 
-        plt.xlabel("No. of Inner Iterations")
-        plt.ylabel("$\|A_i^{\intercal} b_i\|$")
+        plt.xlabel("No. of ADMM Iterations")
+        plt.ylabel("$\|\mathbf A_i^{\intercal} \mathbf b_i\|$")
         plt.grid(True, linewidth=0.4, alpha=0.6)
         plt.ylim([0, YLIM])
         plt.xlim([0, len(error_array["means"][v])-2])
-        plt.legend()
+        plt.legend(loc='lower right', framealpha=0.95)
 
 
     if VIEW_FIGURES:

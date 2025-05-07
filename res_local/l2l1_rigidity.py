@@ -17,7 +17,6 @@ from functions.special import rigidity
 from config.rigid_network_3D import POSITIONS, EDGES
 
 
-SIMULATION_NO = 1
 SAVE_DIR = 'media/l2l1_centralized/'
 JSON_NAME = 'media/Data/l2l1_data'
 
@@ -28,7 +27,7 @@ if __name__ == "__main__":
         3: "error_vs_scp_iterations",
         4: "error_vs_measurement_error",
         5: "draw_graph",
-        6: "DEBUG_check_l2l1_condition"
+        6: "DEBUG_check_l2l1_condition",
     }
     parser = argparse.ArgumentParser(description="Takes simulation specifications as arguments...")
     parser.add_argument("-s", "--simulation", required=True,
@@ -44,20 +43,21 @@ if __name__ == "__main__":
     VIEW_FIGURES = args.view
     
     PARAM_SETS = []
-    PARAM_SET_DEFAULT = {"num_faulty_drones": 4, "num_scp_iterations": 4, "num_mc": 1, 
+    PARAM_SET_DEFAULT = {"num_faulty_drones": 6, "num_scp_iterations": 5, 
+                         "num_mc": 1, 
                          "slackness_init": 4.0, "slackness_reduction": 3.0, "error_type": "random",
                          "measurement_error": None, "estimation_error": None}
 
     if SIMULATION[SIMULATION_NO] == "single_run":
         PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
-        PARAM_SETS[-1]["num_scp_iterations"] = 4
+        PARAM_SETS[-1]["num_scp_iterations"] = 5
         
     elif SIMULATION[SIMULATION_NO] == "error_vs_n_faulty":
         for error_type in ["random", "offset"]:
-            for num_param_set in range(12):
+            for num_param_set in range(16):
                 PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
                 PARAM_SETS[-1]["num_faulty_drones"] = num_param_set + 1
-                PARAM_SETS[-1]["num_mc"] = 250
+                PARAM_SETS[-1]["num_mc"] = 500
                 PARAM_SETS[-1]["error_type"] = error_type
 
     
@@ -65,17 +65,18 @@ if __name__ == "__main__":
         for num_param_set in range(8):
             PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
             PARAM_SETS[-1]["num_scp_iterations"] = num_param_set + 1
-            PARAM_SETS[-1]["num_mc"] = 250
+            PARAM_SETS[-1]["num_mc"] = 500
 
     elif SIMULATION[SIMULATION_NO] == "error_vs_measurement_error":
         num_x_vals = 6
-        slackness_reduction = [3.0, 2.0, 1.5, 1.5, 1.3, 1.2]
+        slackness_reduction = [1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
         for estimation_error in np.linspace(0.0, 0.9, 4):
             for i, measurement_error in enumerate(np.linspace(0.0, float(num_x_vals-1), num_x_vals)):
                 PARAM_SETS.append(deepcopy(PARAM_SET_DEFAULT))
+                PARAM_SETS[-1]["error_type"] = "random"
                 PARAM_SETS[-1]["estimation_error"] = estimation_error
                 PARAM_SETS[-1]["measurement_error"] = measurement_error
-                PARAM_SETS[-1]["num_mc"] = 250
+                PARAM_SETS[-1]["num_mc"] = 50
                 PARAM_SETS[-1]["slackness_init"] = 4.0 + measurement_error
                 PARAM_SETS[-1]["slackness_reduction"] = slackness_reduction[i]
 
@@ -144,7 +145,7 @@ if __name__ == "__main__":
             tol = params["slackness_init"]
             measurements = rigidity.get_phi_D(G, using_estimates=False)
             if params["measurement_error"]:
-                measurements += misc.random_vector_on_sphere(dimension=len(EDGES), radius=[params["measurement_error"]]).T[0]
+                measurements += misc.random_vector_on_sphere(dimension=len(measurements), radius=[params["measurement_error"]]).T[0]
 
             try:
                 for _ in range(params["num_scp_iterations"]):
@@ -164,6 +165,17 @@ if __name__ == "__main__":
 
                 if set(rigidity.get_nonzero_blocks(x_k, tol=0.1)) == set([int(_d)-1 for _d in FAULTY_DRONES]):
                     errors_detected += 1
+                # else:
+                #     print("These were detected, but not faulty:")
+                #     for i in rigidity.get_nonzero_blocks(x_k, tol=0.1):
+                #         if i not in [int(_d)-1 for _d in FAULTY_DRONES]:
+                #             print(i, x_k[3*i: 3*(i+1)])
+
+                #     print("These were not detected, but faulty:")
+                #     for i in set([int(_d)-1 for _d in FAULTY_DRONES]):
+                #         if i not in rigidity.get_nonzero_blocks(x_k, tol=0.1):
+                #             print(i, x_k[3*i: 3*(i+1)])
+                #             print(true_error_vector[3*i: 3*(i+1)])
 
             except:
                 failed_to_converge += 1.0
@@ -200,6 +212,7 @@ if __name__ == "__main__":
 
     # -------------- PLOTTING
     FIG_WIDTH = 4.5
+    ASPECT = 0.25
     APPROX_ERROR_LABEL = r"$\| \mathbf x - \mathbf x^* \|_2 \big/ \|\mathbf x\|_2 $"
 
     if SIMULATION[SIMULATION_NO] == "single_run":
@@ -213,11 +226,11 @@ if __name__ == "__main__":
         y = [_r*100 for _r in error_array["fail_ratios"]]
         plt.plot(x, y, "r--")
         plt.xlabel("No. of Localization Errors")
-        plt.ylabel("$\%$ of Trials that Failed to Converge")
+        plt.ylabel(r"$\%$ of Trials that Failed to Converge")
         plt.savefig(SAVE_DIR + "DEBUG_" + SIMULATION[SIMULATION_NO], 
                     format='png', bbox_inches='tight', dpi=300)
 
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
         x_rand = []
         y_rand = []
         y_off = []
@@ -232,17 +245,17 @@ if __name__ == "__main__":
         plt.plot(x_rand, y_rand, ".-", linewidth=1.0, markersize=6, color="black", label="Uncorrelated Errors")
         plt.legend()
         plt.xlabel("No. of Localization Errors")
-        plt.ylabel("$\%$ of Trials where $\hat{\mathcal D} = \mathcal D$")
-        plt.xlim([1, 12])
+        plt.ylabel(r"$\%$ of Success")
+        plt.xlim([1, 16])
         plt.ylim([-0.5, 100.5])
         plt.grid(True, linewidth=0.4, alpha=0.6)
 
     if SIMULATION[SIMULATION_NO] == "error_vs_scp_iterations":
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
         x = [_ps["num_scp_iterations"] for _ps in PARAM_SETS]
         y = [_m for _m in error_array["means"]]
         caps = [_d for _d in error_array["deviations"]]
-        plt.errorbar(x, y, yerr=caps, fmt='o', markersize=3, capsize=10, color="lightseagreen", label="$\pm 1$ Standard Deviation")
+        plt.errorbar(x, y, yerr=caps, fmt='o', markersize=3, capsize=10, color="lightseagreen", label=r"$\pm 1$ Standard Deviation")
         plt.plot(x, y, linewidth=1.0, color="darkslategray")
         plt.xlabel("No. of SCP Iterations")
         plt.ylabel(APPROX_ERROR_LABEL)
@@ -270,19 +283,19 @@ if __name__ == "__main__":
             y_vals[line_number].append(error_array["means"][i])
             y_caps[line_number].append(error_array["deviations"][i])
 
-        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*0.6))
+        plt.figure(figsize=(FIG_WIDTH, FIG_WIDTH*ASPECT))
         for i in range(len(y_vals)):
             # plt.errorbar(x_vals[i], y_vals[i], yerr=y_caps[i], fmt='o', markersize=1, 
             #              capsize=6, color=cap_colors[i], zorder=1.0)
-            plt.plot(x_vals[i], y_vals[i], linestyles[i], label="$\kappa=$" + f"{estimation_errors[i]:.1f}", 
+            plt.plot(x_vals[i], y_vals[i], linestyles[i], label=r"$\kappa=$" + f"{estimation_errors[i]:.1f}", 
                      color=line_colors[i], zorder=2.0, markersize=markersizes[i], linewidth=1.0)
 
-        plt.xlabel("Measurement Noise ($\epsilon$)")
+        plt.xlabel(r"Measurement Noise ($\epsilon$)")
         plt.ylabel(APPROX_ERROR_LABEL)
         plt.grid(True, linewidth=0.4, alpha=0.6)
         plt.xlim([0, num_x_vals-1])
-        plt.ylim([0, 0.8])
-        plt.legend()
+        plt.ylim([0, 1.0])
+        plt.legend(loc='lower right', labelspacing=0.25, handletextpad=0.3)
 
     if VIEW_FIGURES:
         plot.show()
